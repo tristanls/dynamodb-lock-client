@@ -1,0 +1,34 @@
+{
+  "name": "dynamodb-lock-client",
+  "version": "0.0.0",
+  "description": "A general purpose distributed locking library built for AWS DynamoDB.",
+  "scripts": {
+    "assert-latest-node": "(node -v | grep -q ${npm_package_scriptvars_latest_node}) || (echo \"Expected node version ${npm_package_scriptvars_latest_node}, got $(node -v)\" && exit 1)",
+    "inject-examples": "node scripts/injectExamples.js",
+    "readme": "node examples/readme.js",
+    "test": "npm run assert-latest-node && npm list 1>/dev/null && jest -w 1"
+  },
+  "scriptvars": {
+    "latest_node": "v8.7.0"
+  },
+  "main": "index.js",
+  "devDependencies": {
+    "jest": "21.2.1"
+  },
+  "dependencies": {
+    "aws-sdk": "2.133.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:tristanls/dynamodb-lock-client.git"
+  },
+  "keywords": [
+    "dynamodb",
+    "distributed",
+    "lock"
+  ],
+  "contributors": [
+    "Tristan Slominski <tristan.slominski@gmail.com>"
+  ],
+  "license": "MIT"
+}
