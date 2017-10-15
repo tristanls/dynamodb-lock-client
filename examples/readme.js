@@ -15,19 +15,20 @@ const failClosedClient = new DynamoDBLockClient.FailClosed(
     {
         dynamodb,
         lockTable: "my-lock-table-name",
-        partitionKey: "key",
+        partitionKey: "mylocks",
         acquirePeriodMs: 1e4
     }
 );
 
-failClosedClient.acquireLock("my-lock-name", (error, lock) =>
+failClosedClient.acquireLock("my-fail-closed-lock", (error, lock) =>
     {
         if (error)
         {
             return console.error(error)
         }
+        console.log("acquired fail closed lock");
         // do stuff
-        lock.release(error => error ? console.error(error) : console.log("released"));
+        lock.release(error => error ? console.error(error) : console.log("released fail closed lock"));
     }
 );
 
@@ -38,19 +39,21 @@ const failOpenClient = new DynamoDBLockClient.FailOpen(
     {
         dynamodb,
         lockTable: "my-lock-table-name",
+        partitionKey: "mylocks",
         heartbeatPeriodMs: 3e3,
-        sendHeartbeats: true,
         leaseDurationMs: 1e4
     }
 );
 
-failOpenClient.acquireLock("my-lock-name", (error, lock) =>
+failOpenClient.acquireLock("my-fail-open-lock", (error, lock) =>
     {
         if (error)
         {
             return console.error(error)
         }
+        console.log("acquired fail open lock");
+        lock.on("error", error => console.error("failed to heartbeat!"));
         // do stuff
-        lock.release(error => error ? console.error(error) : console.log("released"));
+        lock.release(error => error ? console.error(error) : console.log("released fail open lock"));
     }
 );

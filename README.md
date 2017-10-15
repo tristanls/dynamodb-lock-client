@@ -24,6 +24,8 @@ A general purpose distributed locking library built for AWS DynamoDB.
     npm install dynamodb-lock-client
 
 
+
+
 ## Usage
 
 To run the below example, run:
@@ -48,19 +50,20 @@ const failClosedClient = new DynamoDBLockClient.FailClosed(
     {
         dynamodb,
         lockTable: "my-lock-table-name",
-        partitionKey: "key",
+        partitionKey: "mylocks",
         acquirePeriodMs: 1e4
     }
 );
 
-failClosedClient.acquireLock("my-lock-name", (error, lock) =>
+failClosedClient.acquireLock("my-fail-closed-lock", (error, lock) =>
     {
         if (error)
         {
-            throw error;
+            return console.error(error)
         }
+        console.log("acquired fail closed lock");
         // do stuff
-        lock.release(error => error ? throw error : undefined);
+        lock.release(error => error ? console.error(error) : console.log("released fail closed lock"));
     }
 );
 
@@ -71,20 +74,22 @@ const failOpenClient = new DynamoDBLockClient.FailOpen(
     {
         dynamodb,
         lockTable: "my-lock-table-name",
+        partitionKey: "mylocks",
         heartbeatPeriodMs: 3e3,
-        sendHeartbeats: true,
         leaseDurationMs: 1e4
     }
 );
 
-failOpenClient.acquireLock("my-lock-name", (error, lock) =>
+failOpenClient.acquireLock("my-fail-open-lock", (error, lock) =>
     {
         if (error)
         {
-            throw error;
+            return console.error(error)
         }
+        console.log("acquired fail open lock");
+        lock.on("error", error => console.error("failed to heartbeat!"));
         // do stuff
-        lock.release(error => error ? throw error : undefined);
+        lock.release(error => error ? console.error(error) : console.log("released fail open lock"));
     }
 );
 
@@ -125,8 +130,7 @@ Creates a "fail closed" client that acquires "fail closed" locks. If process cra
     * `dynamodb`: _AWS.DynamoDB.DocumentClient_ Instance of AWS DynamoDB DocumentClient.
     * `lockTable`: _String_ Name of lock table to use.
     * `partitionKey`: _String_ Name of table partition key (hash key) to use.
-    * `heartbeatPeriodMs`: _Number_ _(Default: undefined)_ Optional period at which to send heartbeats in order to keep the lock locked. Only used if `sendHeartbeats` is `true`.
-    * `sendHeartbeats`: _Boolean_ _(Default: false)_ Flag to control whether heartbeats will be sent to keep the lock locked.
+    * `heartbeatPeriodMs`: _Number_ _(Default: undefined)_ Optional period at which to send heartbeats in order to keep the lock locked. Providing this option will cause heartbeats to be sent.
     * `leaseDurationMs`: _Number_ The length of lock lease duration. If the lock is not renewed via a heartbeat within `leaseDurationMs` it will be automatically released.
   * Return: _Object_ Fail open client.
 
@@ -137,13 +141,13 @@ Creates a "fail open" client that acquires "fail open" locks. If process crashes
   * `id`: _String\|Buffer\|Number_ Unique identifier for the lock. The type must correspond to lock table's partition key type.
   * `callback`: _Function_ `(error, lock) => {}`
     * `error`: _Error_ Error, if any.
-    * `lock`: _DynamoDBLockClient.Lock_ Successfully acquired lock object.
+    * `lock`: _DynamoDBLockClient.Lock_ Successfully acquired lock object. Lock object is an instance of `EventEmitter`. If the `lock` is acquired via a fail open `client` configured to heartbeat, then the returned `lock` may emit an `error` event if a `heartbeat` operation fails.
 
 Attempts to acquire a lock. If lock acquisition fails, callback will be called with an `error` and `lock` will be falsy. If lock acquisition succeeds, callback will be called with `lock`, and `error` will be falsy.
 
 Fail closed client will attempt to acquire a lock. On failure, client will retry after `acquirePeriodMs`. On another failure, client will fail lock acquisition. On successful acquisition, lock will be locked until `lock.release()` is called successfuly.
 
-Fail open client will attempt to acquire a lock. On failure, client will retry after `leaseDurationMs`. On another failure, client will fail lock acquisition. On successful acquisition, if `sendHeartbeats` option is `false`, lock will expire after `leaseDurartionMs`. If `sendHeartbeats` option is `true`, lock will be renewed at `heartbeatPeriodMs` intervals until `lock.release()` is called successfuly.
+Fail open client will attempt to acquire a lock. On failure, client will retry after `leaseDurationMs`. On another failure, client will fail lock acquisition. On successful acquisition, if `heartbeatPeriodMs` option is not specified (heartbeats off), lock will expire after `leaseDurartionMs`. If `heartbeatPeriodMs` option is specified, lock will be renewed at `heartbeatPeriodMs` intervals until `lock.release()` is called successfuly. Additionally, if `heartbeatPeriodMs` option is specified, lock may emit an `error` event if it fails a heartbeat operation.
 
 ### lock.release(callback)
 
