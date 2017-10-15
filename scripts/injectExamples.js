@@ -39,8 +39,7 @@ let readmeScript = fs.readFileSync(path.join(__dirname, "..", "examples", "readm
 const useStrict = readmeScript.toString().match(/"use strict";/);
 readmeScript = readmeScript.toString().slice(useStrict.index);
 
-const replacement = `
-## Usage
+const replacement = `## Usage
 
 To run the below example, run:
 
@@ -73,6 +72,6 @@ if (tests.index < usage.index) {
 const firstSlice = readmeDoc.toString().slice(0, usage.index);
 const secondSlice = readmeDoc.toString().slice(tests.index);
 
-readmeDoc = `${firstSlice}${replacement}\n\n${secondSlice}`;
+readmeDoc = `${firstSlice}${replacement}\n${secondSlice}`;
 
 fs.writeFileSync(path.join(__dirname, "..", "README.md"), readmeDoc);

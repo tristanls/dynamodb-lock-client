@@ -23,9 +23,6 @@ A general purpose distributed locking library built for AWS DynamoDB.
 
     npm install dynamodb-lock-client
 
-
-
-
 ## Usage
 
 To run the below example, run:
@@ -94,7 +91,6 @@ failOpenClient.acquireLock("my-fail-open-lock", (error, lock) =>
 );
 
 ```
-
 
 ## Tests
 
