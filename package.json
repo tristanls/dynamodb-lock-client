@@ -6,8 +6,7 @@
     "assert-latest-node": "(node -v | grep -q ${npm_package_scriptvars_latest_node}) || (echo \"Expected node version ${npm_package_scriptvars_latest_node}, got $(node -v)\" && exit 1)",
     "inject-examples": "node scripts/injectExamples.js",
     "prepublishOnly": "npm run inject-examples",
-    "readme": "node examples/readme.js",
-    "test": "npm run assert-latest-node && npm list 1>/dev/null && jest -w 1"
+    "readme": "node examples/readme.js"
   },
   "scriptvars": {
     "latest_node": "v8.7.0"
