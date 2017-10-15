@@ -106,7 +106,7 @@ No tests at this time.
 
   * [new DynamoDBLockClient.FailClosed(config)](#new-dynamodblockclientfailclosedconfig)
   * [new DynamoDBLockClient.FailOpen(config)](#new-dynamodblockclientfailopenconfig)
-  * [client.acquireLock(name, callback)](#clientacquirelockname-callback)
+  * [client.acquireLock(id, callback)](#clientacquirelockid-callback)
   * [lock.release(callback)](#lockreleasecallback)
 
 ### new DynamoDBLockClient.FailClosed(config)
