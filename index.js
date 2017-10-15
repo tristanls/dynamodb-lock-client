@@ -32,7 +32,7 @@ const FailClosed = function(config)
     self._dynamodb = self._config.dynamodb;
     self._lockTable = self._config.lockTable;
     self._partitionKey = self._config.partitionKey;
-    self._acquirePeriodMs = self._config._acquirePeriodMs;
+    self._acquirePeriodMs = self._config.acquirePeriodMs;
 };
 
 FailClosed.schema =
