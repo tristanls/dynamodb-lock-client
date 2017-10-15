@@ -1,6 +1,6 @@
 {
   "name": "dynamodb-lock-client",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A general purpose distributed locking library built for AWS DynamoDB.",
   "scripts": {
     "assert-latest-node": "(node -v | grep -q ${npm_package_scriptvars_latest_node}) || (echo \"Expected node version ${npm_package_scriptvars_latest_node}, got $(node -v)\" && exit 1)",
