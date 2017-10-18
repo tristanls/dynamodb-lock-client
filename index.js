@@ -411,7 +411,17 @@ Lock.prototype._releaseFailOpen = function(callback)
         }
     };
     params.Item[self._partitionKey] = self._id;
-    self._dynamodb.put(params, (error, data) => callback()); // if error, another process may have claimed lock already
+    self._dynamodb.put(params, (error, data) =>
+        {
+            if (error && error.code === "ConditionalCheckFailedException")
+            {
+                // another process may have claimed lock already
+                return callback();
+            }
+            return callback(error);
+        }
+    );
+
 };
 
 module.exports =
