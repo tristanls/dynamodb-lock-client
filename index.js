@@ -172,9 +172,11 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     }
                     if (!data.Item)
                     {
+                        dataBag.fencingToken = 1;
                         return workflow.emit("acquire new lock", dataBag);
                     }
                     dataBag.lock = data.Item;
+                    dataBag.fencingToken = dataBag.lock.fencingToken + 1;
                     return setTimeout(
                         () => workflow.emit("acquire existing lock", dataBag),
                         parseInt(dataBag.lock.leaseDurationMs)
@@ -190,6 +192,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 TableName: self._lockTable,
                 Item:
                 {
+                    fencingToken: dataBag.fencingToken,
                     leaseDurationMs: self._leaseDurationMs,
                     owner: dataBag.owner,
                     guid: dataBag.guid
@@ -230,13 +233,15 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 TableName: self._lockTable,
                 Item:
                 {
+                    fencingToken: dataBag.fencingToken,
                     leaseDurationMs: self._leaseDurationMs,
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: `attribute_not_exists(${self._partitionKey}) or guid = :guid`,
+                ConditionExpression: `attribute_not_exists(${self._partitionKey}) or (guid = :guid and fencingToken = :fencingToken)`,
                 ExpressionAttributeValues:
                 {
+                    ":fencingToken": dataBag.lock.fencingToken,
                     ":guid": dataBag.lock.guid
                 }
             };
@@ -272,6 +277,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
             return callback(undefined, new Lock(
                 {
                     dynamodb: self._dynamodb,
+                    fencingToken: dataBag.fencingToken,
                     heartbeatPeriodMs: self._heartbeatPeriodMs,
                     id: dataBag.id,
                     leaseDurationMs: self._leaseDurationMs,
@@ -293,6 +299,7 @@ const Lock = function(config)
     self._config = config;
     self._dynamodb = self._config.dynamodb;
     self._failClosed = self._config.failClosed;
+    self._fencingToken = self._config.fencingToken;
     self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
     self._id = self._config.id;
     self._leaseDurationMs = self._config.leaseDurationMs;
@@ -300,6 +307,8 @@ const Lock = function(config)
     self._owner = self._config.owner;
     self._partitionKey = self._config.partitionKey;
     self._guid = self._config.guid;
+
+    self.fencingToken = self._fencingToken;
 
     if (self._heartbeatPeriodMs)
     {
@@ -311,6 +320,7 @@ const Lock = function(config)
                 TableName: self._lockTable,
                 Item:
                 {
+                    fencingToken: self._fencingToken,
                     leaseDurationMs: self._leaseDurationMs,
                     owner: self._owner,
                     guid: newGuid
@@ -345,7 +355,17 @@ Lock.prototype.release = function(callback)
     if (self._heartbeatTimeout)
     {
         clearTimeout(self._heartbeatTimeout);
+        return self._releaseFailOpen(callback);
     }
+    else
+    {
+        return self._releaseFailClosed(callback);
+    }
+};
+
+Lock.prototype._releaseFailClosed = function(callback)
+{
+    const self = this;
     const params =
     {
         TableName: self._lockTable,
@@ -361,22 +381,37 @@ Lock.prototype.release = function(callback)
         {
             if (error && error.code === "ConditionalCheckFailedException")
             {
-                if (self._failClosed)
-                {
-                    const err = new Error("Failed to release lock.");
-                    err.code = "FailedToReleaseLock";
-                    err.originalError = error;
-                    return callback(err);
-                }
-                else
-                {
-                    // another process may have claimed the lock already
-                    return callback();
-                }
+                const err = new Error("Failed to release lock.");
+                err.code = "FailedToReleaseLock";
+                err.originalError = error;
+                return callback(err);
             }
             return callback(error);
         }
     );
+}
+
+Lock.prototype._releaseFailOpen = function(callback)
+{
+    const self = this;
+    const params =
+    {
+        TableName: self._lockTable,
+        Item:
+        {
+            fencingToken: self._fencingToken,
+            leaseDurationMs: 1,
+            owner: self._owner,
+            guid: self._guid
+        },
+        ConditionExpression: `attribute_exists(${self._partitionKey}) and guid = :guid`,
+        ExpressionAttributeValues:
+        {
+            ":guid": self._guid
+        }
+    };
+    params.Item[self._partitionKey] = self._id;
+    self._dynamodb.put(params, (error, data) => callback()); // if error, another process may have claimed lock already
 };
 
 module.exports =

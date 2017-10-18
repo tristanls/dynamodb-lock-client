@@ -4,7 +4,7 @@ _Stability: 1 - [Experimental](https://github.com/tristanls/stability-index#stab
 
 [![NPM version](https://badge.fury.io/js/dynamodb-lock-client.png)](http://npmjs.org/package/dynamodb-lock-client)
 
-A general purpose distributed locking library built for AWS DynamoDB.
+A general purpose distributed locking library with fencing tokens built for AWS DynamoDB.
 
 ## Contributors
 
@@ -83,7 +83,7 @@ failOpenClient.acquireLock("my-fail-open-lock", (error, lock) =>
         {
             return console.error(error)
         }
-        console.log("acquired fail open lock");
+        console.log(`acquired fail open lock with fencing token ${lock.fencingToken}`);
         lock.on("error", error => console.error("failed to heartbeat!"));
         // do stuff
         lock.release(error => error ? console.error(error) : console.log("released fail open lock"));
@@ -138,6 +138,7 @@ Creates a "fail open" client that acquires "fail open" locks. If process crashes
   * `callback`: _Function_ `(error, lock) => {}`
     * `error`: _Error_ Error, if any.
     * `lock`: _DynamoDBLockClient.Lock_ Successfully acquired lock object. Lock object is an instance of `EventEmitter`. If the `lock` is acquired via a fail open `client` configured to heartbeat, then the returned `lock` may emit an `error` event if a `heartbeat` operation fails.
+      * `fencingToken`: _Integer_ **fail open locks only** Integer monotonically incremented with every "fail open" lock acquisition to be used for [fencing](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html#making-the-lock-safe-with-fencing). Heartbeats do not increment `fencingToken`.
 
 Attempts to acquire a lock. If lock acquisition fails, callback will be called with an `error` and `lock` will be falsy. If lock acquisition succeeds, callback will be called with `lock`, and `error` will be falsy.
 
@@ -151,6 +152,10 @@ Fail open client will attempt to acquire a lock. On failure, client will retry a
     * `error`: _Error_ Error, if any. No error implies successful lock release.
 
 Releases previously acquired lock.
+
+Fail closed lock is deleted, so that it can be acquired again.
+
+Fail open lock heartbeats stop, and its `leaseDurationMs` is set to 1 millisecond so that it expires immediately. The datastructure is left in the datastore in order to provide continuity of `fencingToken` monotonicity guarantee.
 
 ## Releases
 

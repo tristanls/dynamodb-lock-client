@@ -51,7 +51,7 @@ failOpenClient.acquireLock("my-fail-open-lock", (error, lock) =>
         {
             return console.error(error)
         }
-        console.log("acquired fail open lock");
+        console.log(`acquired fail open lock with fencing token ${lock.fencingToken}`);
         lock.on("error", error => console.error("failed to heartbeat!"));
         // do stuff
         lock.release(error => error ? console.error(error) : console.log("released fail open lock"));
