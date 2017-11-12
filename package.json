@@ -28,7 +28,8 @@
     "lock"
   ],
   "contributors": [
-    "Tristan Slominski <tristan.slominski@gmail.com>"
+    "Tristan Slominski <tristan.slominski@gmail.com>",
+    "Jacob Lynch"
   ],
   "license": "MIT"
 }
