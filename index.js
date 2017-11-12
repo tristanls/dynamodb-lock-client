@@ -307,6 +307,7 @@ const Lock = function(config)
     self._owner = self._config.owner;
     self._partitionKey = self._config.partitionKey;
     self._guid = self._config.guid;
+    self._released = false;
 
     self.fencingToken = self._fencingToken;
 
@@ -339,7 +340,10 @@ const Lock = function(config)
                         return self.emit("error", error);
                     }
                     self._guid = newGuid;
-                    self._heartbeatTimeout = setTimeout(refreshLock, self._heartbeatPeriodMs);
+                    if (!self._released) // See https://github.com/tristanls/dynamodb-lock-client/issues/1
+                    {
+                        self._heartbeatTimeout = setTimeout(refreshLock, self._heartbeatPeriodMs);
+                    }
                 }
             );
         };
@@ -352,6 +356,7 @@ util.inherits(Lock, events.EventEmitter);
 Lock.prototype.release = function(callback)
 {
     const self = this;
+    self._released = true;
     if (self._heartbeatTimeout)
     {
         clearTimeout(self._heartbeatTimeout);
