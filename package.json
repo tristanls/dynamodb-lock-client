@@ -9,14 +9,14 @@
     "readme": "node examples/readme.js"
   },
   "scriptvars": {
-    "latest_node": "v8.7.0"
+    "latest_node": "v10.6.0"
   },
   "main": "index.js",
   "devDependencies": {
-    "aws-sdk": "2.133.0"
+    "aws-sdk": "2.275.1"
   },
   "dependencies": {
-    "joi": "13.0.0"
+    "joi": "13.4.0"
   },
   "repository": {
     "type": "git",
