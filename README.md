@@ -140,7 +140,7 @@ Parameters:
 Outputs:
 
   DistributedLocksStore:
-    Value: !GetAtt: DistributedLocksStore.Arn
+    Value: !GetAtt DistributedLocksStore.Arn
 ```
 
 The template above would make your `config.partitionKey == "id"` and your `config.lockTable == "distributed-lock-store"`.
