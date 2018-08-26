@@ -16,6 +16,7 @@ A general purpose distributed locking library with fencing tokens built for AWS 
   * [Usage](#usage)
   * [Tests](#tests)
   * [Documentation](#documentation)
+    * [Setting up the lock table in DynamoDB](#setting-up-the-lock-table-in-dynamodb)
     * [DynamoDBLockClient](#dynamodblockclient)
   * [Releases](#releases)
 
@@ -98,7 +99,7 @@ No tests at this time.
 
 ## Documentation
 
-  * [Setting up the lock table in DynamoDB](#settingupthelocktableindynamodb)
+  * [Setting up the lock table in DynamoDB](#setting-up-the-lock-table-in-dynamodb)
   * [DynamoDBLockClient](#dynamodblockclient)
 
 ### Setting up the lock table in DynamoDB
