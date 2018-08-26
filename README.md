@@ -98,7 +98,53 @@ No tests at this time.
 
 ## Documentation
 
+  * [Setting up the lock table in DynamoDB](#settingupthelocktableindynamodb)
   * [DynamoDBLockClient](#dynamodblockclient)
+
+### Setting up the lock table in DynamoDB
+
+The DynamoDB lock table needs to be created independently. The following is an example CloudFormation template that would create such a lock table:
+
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources:
+
+  DistributedLocksStore:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref DistributedLocksStoreReadCapacityUnits
+        WriteCapacityUnits: !Ref DistributedLocksStoreWriteCapacityUnits
+      TableName: "distributed-locks-store"
+
+Parameters:
+
+  DistributedLocksStoreReadCapacityUnits:
+    Type: Number
+    Default: 1
+    Description: DistributedLocksStore ReadCapacityUnits
+
+  DistributedLocksStoreWriteCapacityUnits:
+    Type: Number
+    Default: 1
+    Description: DistributedLocksStore WriteCapacityUnits
+
+Outputs:
+
+  DistributedLocksStore:
+    Value: !GetAtt: DistributedLocksStore.Arn
+```
+
+The template above would make your `config.partitionKey == "id"` and your `config.lockTable == "distributed-lock-store"`.
+
+You can choose to call your `config.partitionKey` any valid string except `guid` or `owner` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table.
 
 ### DynamoDBLockClient
 
