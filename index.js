@@ -149,7 +149,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
     setImmediate(() => workflow.emit("start",
         {
             id,
-            owner: `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
+            owner: `${pkg.name}@${pkg.version}`,
             retryCount: 0,
             guid: crypto.randomBytes(64)
         }
