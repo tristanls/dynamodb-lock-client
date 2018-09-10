@@ -163,6 +163,7 @@ You can choose to call your `config.partitionKey` any valid string except `guid`
     * `lockTable`: _String_ Name of lock table to use.
     * `partitionKey`: _String_ Name of table partition key (hash key) to use.
     * `acquirePeriodMs`: _Number_ How long to wait for the lock before giving up. Whatever operation this lock is protecting should take less time than `acquirePeriodMs`.
+    * `owner`: _String_ Customize owner name for lock (optional).
   * Return: _Object_ Fail closed client.
 
 Creates a "fail closed" client that acquires "fail closed" locks. If process crashes and lock is not released, lock will never be released. This means that some sort of intervention will be required to put the system back into operational state if lock is held and a process crashes while holding the lock.
@@ -175,6 +176,7 @@ Creates a "fail closed" client that acquires "fail closed" locks. If process cra
     * `partitionKey`: _String_ Name of table partition key (hash key) to use.
     * `heartbeatPeriodMs`: _Number_ _(Default: undefined)_ Optional period at which to send heartbeats in order to keep the lock locked. Providing this option will cause heartbeats to be sent.
     * `leaseDurationMs`: _Number_ The length of lock lease duration. If the lock is not renewed via a heartbeat within `leaseDurationMs` it will be automatically released.
+    * `owner`: _String_ Customize owner name for lock (optional).
   * Return: _Object_ Fail open client.
 
 Creates a "fail open" client that acquires "fail open" locks. If process crashes and lock is not released, lock will eventually expire after `leaseDurationMs` from last heartbeat sent (if any). This means that if process acquires a lock, goes to sleep for more than `leaseDurationMs`, and then wakes up assuming it still has a lock, then it can perform an operation ignoring other processes that may assume they have a lock on the operation.

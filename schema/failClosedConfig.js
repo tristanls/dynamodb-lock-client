@@ -4,6 +4,7 @@ const Joi = require("joi");
 
 const schema = Joi.object().keys(
     {
+        owner: Joi.string(),
         dynamodb: Joi.object().keys(
             {
                 delete: Joi.func().required(),
