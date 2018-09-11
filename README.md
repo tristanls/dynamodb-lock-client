@@ -8,7 +8,7 @@ A general purpose distributed locking library with fencing tokens built for AWS 
 
 ## Contributors
 
-[@tristanls](https://github.com/tristanls), [@Jacob-Lynch](https://github.com/Jacob-Lynch)
+[@tristanls](https://github.com/tristanls), [@Jacob-Lynch](https://github.com/Jacob-Lynch), @[simlu](https://github.com/simlu)
 
 ## Contents
 
