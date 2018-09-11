@@ -9,11 +9,11 @@
     "readme": "node examples/readme.js"
   },
   "scriptvars": {
-    "latest_node": "v10.9.0"
+    "latest_node": "v10.10.0"
   },
   "main": "index.js",
   "devDependencies": {
-    "aws-sdk": "2.302.0"
+    "aws-sdk": "2.312.0"
   },
   "dependencies": {
     "joi": "13.6.0"
