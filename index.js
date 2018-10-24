@@ -177,10 +177,13 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     }
                     dataBag.lock = data.Item;
                     dataBag.fencingToken = dataBag.lock.fencingToken + 1;
-                    return setTimeout(
-                        () => workflow.emit("acquire existing lock", dataBag),
-                        parseInt(dataBag.lock.leaseDurationMs)
-                    );
+                    const leaseDurationMs = parseInt(dataBag.lock.leaseDurationMs);
+                    const lockAquiredUnixInMs = parseInt(dataBag.lock.unixInMs);
+                    const unixInMs = (new Date).getTime();
+                    const timeout = self._config.trustUnix === true
+                        ? Math.max(0, leaseDurationMs - (unixInMs - lockAquiredUnixInMs))
+                        : leaseDurationMs;
+                    return setTimeout(() => workflow.emit("acquire existing lock", dataBag), timeout);
                 }
             );
         }
@@ -323,6 +326,7 @@ const Lock = function(config)
                 {
                     fencingToken: self._fencingToken,
                     leaseDurationMs: self._leaseDurationMs,
+                    unixInMs: (new Date).getTime(),
                     owner: self._owner,
                     guid: newGuid
                 },
