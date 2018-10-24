@@ -183,7 +183,10 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     const timeout = self._config.trustUnix === true
                         ? Math.max(0, leaseDurationMs - (unixInMs - lockAquiredUnixInMs))
                         : leaseDurationMs;
-                    return setTimeout(() => workflow.emit("acquire existing lock", dataBag), timeout);
+                    return setTimeout(
+                        () => workflow.emit("acquire existing lock", dataBag),
+                        timeout
+                    );
                 }
             );
         }
