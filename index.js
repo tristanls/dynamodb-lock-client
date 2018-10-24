@@ -394,7 +394,7 @@ Lock.prototype._releaseFailClosed = function(callback)
             return callback(error);
         }
     );
-}
+};
 
 Lock.prototype._releaseFailOpen = function(callback)
 {
