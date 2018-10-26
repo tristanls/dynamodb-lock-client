@@ -15,6 +15,7 @@ const schema = Joi.object().keys(
         lockTable: Joi.string().required(),
         partitionKey: Joi.string().required(),
         heartbeatPeriodMs: Joi.number().integer().min(0),
+        trustUnix: Joi.boolean(),
         leaseDurationMs: Joi.number().integer().min(0).required()
     }
 ).required();
