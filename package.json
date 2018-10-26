@@ -13,10 +13,10 @@
   },
   "main": "index.js",
   "devDependencies": {
-    "aws-sdk": "2.312.0"
+    "aws-sdk": "2.343.0"
   },
   "dependencies": {
-    "joi": "13.6.0"
+    "joi": "14.0.1"
   },
   "repository": {
     "type": "git",
