@@ -135,6 +135,7 @@ const FailOpen = function(config)
     self._partitionKey = self._config.partitionKey;
     self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
     self._leaseDurationMs = self._config.leaseDurationMs;
+    self._trustLocalTime = self._config.trustLocalTime;
 };
 
 FailOpen.schema =
@@ -178,11 +179,17 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     dataBag.lock = data.Item;
                     dataBag.fencingToken = dataBag.lock.fencingToken + 1;
                     const leaseDurationMs = parseInt(dataBag.lock.leaseDurationMs);
-                    const lockAquiredUnixInMs = parseInt(dataBag.lock.unixInMs);
-                    const unixInMs = (new Date).getTime();
-                    const timeout = self._config.trustUnix === true
-                        ? Math.max(0, leaseDurationMs - (unixInMs - lockAquiredUnixInMs))
-                        : leaseDurationMs;
+                    let timeout;
+                    if (self._trustLocalTime)
+                    {
+                        const lockAcquiredTimeUnixMs = parseInt(dataBag.lock.lockAcquiredTimeUnixMs);
+                        const localTimeUnixMs = (new Date()).getTime();
+                        timeout = Math.max(0, leaseDurationMs - (localTimeUnixMs - lockAcquiredTimeUnixMs));
+                    }
+                    else
+                    {
+                        timeout = leaseDurationMs;
+                    }
                     return setTimeout(
                         () => workflow.emit("acquire existing lock", dataBag),
                         timeout
@@ -205,6 +212,10 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 },
                 ConditionExpression: `attribute_not_exists(${self._partitionKey})`
             };
+            if (self._trustLocalTime)
+            {
+                params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
+            }
             params.Item[self._partitionKey] = dataBag.id;
             self._dynamodb.put(params, (error, data) =>
                 {
@@ -251,6 +262,10 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     ":guid": dataBag.lock.guid
                 }
             };
+            if (self._trustLocalTime)
+            {
+                params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
+            }
             params.Item[self._partitionKey] = dataBag.id;
             self._dynamodb.put(params, (error, data) =>
                 {
@@ -284,13 +299,14 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 {
                     dynamodb: self._dynamodb,
                     fencingToken: dataBag.fencingToken,
+                    guid: dataBag.guid,
                     heartbeatPeriodMs: self._heartbeatPeriodMs,
                     id: dataBag.id,
                     leaseDurationMs: self._leaseDurationMs,
                     lockTable: self._lockTable,
                     owner: dataBag.owner,
                     partitionKey: self._partitionKey,
-                    guid: dataBag.guid
+                    trustLocalTime: self._trustLocalTime
                 }
             ));
         }
@@ -306,14 +322,15 @@ const Lock = function(config)
     self._dynamodb = self._config.dynamodb;
     self._failClosed = self._config.failClosed;
     self._fencingToken = self._config.fencingToken;
+    self._guid = self._config.guid;
     self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
     self._id = self._config.id;
     self._leaseDurationMs = self._config.leaseDurationMs;
     self._lockTable = self._config.lockTable;
     self._owner = self._config.owner;
     self._partitionKey = self._config.partitionKey;
-    self._guid = self._config.guid;
     self._released = false;
+    self._trustLocalTime = self._config.trustLocalTime;
 
     self.fencingToken = self._fencingToken;
 
@@ -329,7 +346,6 @@ const Lock = function(config)
                 {
                     fencingToken: self._fencingToken,
                     leaseDurationMs: self._leaseDurationMs,
-                    unixInMs: (new Date).getTime(),
                     owner: self._owner,
                     guid: newGuid
                 },
@@ -339,6 +355,10 @@ const Lock = function(config)
                     ":guid": self._guid
                 }
             };
+            if (self._trustLocalTime)
+            {
+                params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
+            }
             params.Item[self._partitionKey] = self._id;
             self._dynamodb.put(params, (error, data) =>
                 {
@@ -422,6 +442,10 @@ Lock.prototype._releaseFailOpen = function(callback)
             ":guid": self._guid
         }
     };
+    if (self._trustLocalTime)
+    {
+        params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
+    }
     params.Item[self._partitionKey] = self._id;
     self._dynamodb.put(params, (error, data) =>
         {

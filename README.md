@@ -177,6 +177,7 @@ Creates a "fail closed" client that acquires "fail closed" locks. If process cra
     * `heartbeatPeriodMs`: _Number_ _(Default: undefined)_ Optional period at which to send heartbeats in order to keep the lock locked. Providing this option will cause heartbeats to be sent.
     * `leaseDurationMs`: _Number_ The length of lock lease duration. If the lock is not renewed via a heartbeat within `leaseDurationMs` it will be automatically released.
     * `owner`: _String_ Customize owner name for lock (optional).
+    * `trustLocalTime`: _Boolean_ _(Default: false)_ If set to `true`, when the client retrieves an existing lock, it will use local time to determine if `leaseDurationMs` has elapsed (and shorten its wait time accordingly) instead of always waiting the full `leaseDurationMs` milliseconds before making an acquisition attempt.
   * Return: _Object_ Fail open client.
 
 Creates a "fail open" client that acquires "fail open" locks. If process crashes and lock is not released, lock will eventually expire after `leaseDurationMs` from last heartbeat sent (if any). This means that if process acquires a lock, goes to sleep for more than `leaseDurationMs`, and then wakes up assuming it still has a lock, then it can perform an operation ignoring other processes that may assume they have a lock on the operation.
@@ -193,7 +194,7 @@ Attempts to acquire a lock. If lock acquisition fails, callback will be called w
 
 Fail closed client will attempt to acquire a lock. On failure, client will retry after `acquirePeriodMs`. On another failure, client will fail lock acquisition. On successful acquisition, lock will be locked until `lock.release()` is called successfuly.
 
-Fail open client will attempt to acquire a lock. On failure, client will retry after `leaseDurationMs`. On another failure, client will fail lock acquisition. On successful acquisition, if `heartbeatPeriodMs` option is not specified (heartbeats off), lock will expire after `leaseDurartionMs`. If `heartbeatPeriodMs` option is specified, lock will be renewed at `heartbeatPeriodMs` intervals until `lock.release()` is called successfuly. Additionally, if `heartbeatPeriodMs` option is specified, lock may emit an `error` event if it fails a heartbeat operation.
+Fail open client will attempt to acquire a lock. On failure, if `trustLocalTime` is `false` (the default), client will retry after `leaseDurationMs`. If `trustLocalTime` is `true`, the client will retry after `Math.max(0, leaseDurationMs - (localTimeMs - lockAcquiredTimeMs))` where `localTimeMs` is "now" and `lockAcquiredTimeMs` is the lock acquisition time recorded in the retrieved lock. On another failure, client will fail lock acquisition. On successful acquisition, if `heartbeatPeriodMs` option is not specified (heartbeats off), lock will expire after `leaseDurartionMs`. If `heartbeatPeriodMs` option is specified, lock will be renewed at `heartbeatPeriodMs` intervals until `lock.release()` is called successfuly. Additionally, if `heartbeatPeriodMs` option is specified, lock may emit an `error` event if it fails a heartbeat operation.
 
 ### lock.release(callback)
 
