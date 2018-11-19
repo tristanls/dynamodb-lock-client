@@ -63,9 +63,10 @@ FailClosed.prototype.acquireLock = function(id, callback)
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: 'attribute_not_exists(#PK)',
-                ExpressionAttributeNames: {
-                    '#PK': self._partitionKey
+                ConditionExpression: "attribute_not_exists(#partitionKey)",
+                ExpressionAttributeNames:
+                {
+                    "#partitionKey": self._partitionKey
                 }
             };
             params.Item[self._partitionKey] = dataBag.id;
@@ -213,9 +214,10 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: 'attribute_not_exists(#PK)',
-                ExpressionAttributeNames: {
-                    '#PK': self._partitionKey
+                ConditionExpression: "attribute_not_exists(#partitionKey)",
+                ExpressionAttributeNames:
+                {
+                    "#partitionKey": self._partitionKey
                 }
             };
             if (self._trustLocalTime)
@@ -261,9 +263,10 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: 'attribute_not_exists(#PK) or (guid = :guid and fencingToken = :fencingToken)',
-                ExpressionAttributeNames: {
-                    '#PK': self._partitionKey
+                ConditionExpression: "attribute_not_exists(#partitionKey) or (guid = :guid and fencingToken = :fencingToken)",
+                ExpressionAttributeNames:
+                {
+                    "#partitionKey": self._partitionKey
                 },
                 ExpressionAttributeValues:
                 {
@@ -358,9 +361,10 @@ const Lock = function(config)
                     owner: self._owner,
                     guid: newGuid
                 },
-                ConditionExpression: 'attribute_exists(#PK) and guid = :guid',
-                ExpressionAttributeNames: {
-                    '#PK': self._partitionKey
+                ConditionExpression: "attribute_exists(#partitionKey) and guid = :guid",
+                ExpressionAttributeNames:
+                {
+                    "#partitionKey": self._partitionKey
                 },
                 ExpressionAttributeValues:
                 {
@@ -414,9 +418,10 @@ Lock.prototype._releaseFailClosed = function(callback)
     {
         TableName: self._lockTable,
         Key: {},
-        ConditionExpression: `attribute_exists(#PK) and guid = :guid`,
-        ExpressionAttributeNames: {
-            '#PK': self._partitionKey
+        ConditionExpression: `attribute_exists(#partitionKey) and guid = :guid`,
+        ExpressionAttributeNames:
+        {
+            "#partitionKey": self._partitionKey
         },
         ExpressionAttributeValues:
         {
@@ -451,9 +456,10 @@ Lock.prototype._releaseFailOpen = function(callback)
             owner: self._owner,
             guid: self._guid
         },
-        ConditionExpression: 'attribute_exists(#PK) and guid = :guid',
-        ExpressionAttributeNames: {
-            '#PK': self._partitionKey
+        ConditionExpression: "attribute_exists(#partitionKey) and guid = :guid",
+        ExpressionAttributeNames:
+        {
+            "#partitionKey": self._partitionKey
         },
         ExpressionAttributeValues:
         {
