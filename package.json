@@ -12,10 +12,10 @@
     "latest_node": "v10.10.0"
   },
   "main": "index.js",
-  "devDependencies": {
-    "aws-sdk": "2.343.0"
-  },
+  "devDependencies": {},
   "dependencies": {
+    "@types/node": "*",
+    "aws-sdk": "^2.0.0",
     "joi": "14.0.1"
   },
   "repository": {
