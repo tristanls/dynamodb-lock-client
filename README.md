@@ -182,9 +182,11 @@ Creates a "fail closed" client that acquires "fail closed" locks. If process cra
 
 Creates a "fail open" client that acquires "fail open" locks. If process crashes and lock is not released, lock will eventually expire after `leaseDurationMs` from last heartbeat sent (if any). This means that if process acquires a lock, goes to sleep for more than `leaseDurationMs`, and then wakes up assuming it still has a lock, then it can perform an operation ignoring other processes that may assume they have a lock on the operation.
 
-### client.acquireLock(id, callback)
+### client.acquireLock(id, [opt], callback)
 
   * `id`: _String\|Buffer\|Number_ Unique identifier for the lock. The type must correspond to lock table's partition key type.
+  * `opt`: _Object_ Options, optionally containing
+    * readLock: _Boolean_ Indicate if this is a read lock.
   * `callback`: _Function_ `(error, lock) => {}`
     * `error`: _Error_ Error, if any.
     * `lock`: _DynamoDBLockClient.Lock_ Successfully acquired lock object. Lock object is an instance of `EventEmitter`. If the `lock` is acquired via a fail open `client` configured to heartbeat, then the returned `lock` may emit an `error` event if a `heartbeat` operation fails.
