@@ -13,10 +13,11 @@ const schema = Joi.object().keys(
             }
         ).unknown().required(),
         lockTable: Joi.string().required(),
-        partitionKey: Joi.string().required(),
+        partitionKey: Joi.string().invalid("fencingToken", "leaseDurationMs", "owner", "guid").required(),
         heartbeatPeriodMs: Joi.number().integer().min(0),
         leaseDurationMs: Joi.number().integer().min(0).required(),
-        trustLocalTime: Joi.boolean()
+        trustLocalTime: Joi.boolean(),
+        retryCount: Joi.number().integer().min(0)
     }
 ).required();
 

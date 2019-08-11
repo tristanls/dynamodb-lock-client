@@ -19,7 +19,7 @@ const FailClosed = function(config)
 
     const configValidationResult = Joi.validate(
         self._config,
-        FailClosed.schema.config, // partitionKey NOT in [owner, guid]
+        FailClosed.schema.config,
         {
             abortEarly: false,
             convert: false
@@ -33,6 +33,7 @@ const FailClosed = function(config)
     self._lockTable = self._config.lockTable;
     self._partitionKey = self._config.partitionKey;
     self._acquirePeriodMs = self._config.acquirePeriodMs;
+    self._retryCount = self._config.retryCount === undefined ? 1 : self._config.retryCount;
 };
 
 FailClosed.schema =
@@ -48,7 +49,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
         {
             id,
             owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
-            retryCount: 0,
+            retryCount: self._config.retryCount,
             guid: crypto.randomBytes(64)
         }
     ));
@@ -76,7 +77,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
                     {
                         if (error.code === "ConditionalCheckFailedException")
                         {
-                            if (dataBag.retryCount < 1)
+                            if (dataBag.retryCount > 0)
                             {
                                 return workflow.emit("retry acquire lock", dataBag);
                             }
@@ -106,7 +107,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
     );
     workflow.on("retry acquire lock", dataBag =>
         {
-            dataBag.retryCount++;
+            dataBag.retryCount--;
             setTimeout(() => workflow.emit("acquire lock", dataBag), self._acquirePeriodMs);
         }
     );
@@ -140,6 +141,7 @@ const FailOpen = function(config)
     self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
     self._leaseDurationMs = self._config.leaseDurationMs;
     self._trustLocalTime = self._config.trustLocalTime;
+    self._retryCount = self._config.retryCount === undefined ? 1 : self._config.retryCount;
 };
 
 FailOpen.schema =
@@ -155,7 +157,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
         {
             id,
             owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
-            retryCount: 0,
+            retryCount: self._config.retryCount,
             guid: crypto.randomBytes(64)
         }
     ));
@@ -231,9 +233,9 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     {
                         if (error.code === "ConditionalCheckFailedException")
                         {
-                            if (dataBag.retryCount < 1)
+                            if (dataBag.retryCount > 0)
                             {
-                                dataBag.retryCount++;
+                                dataBag.retryCount--;
                                 return workflow.emit("check for existing lock", dataBag);
                             }
                             else
@@ -285,9 +287,9 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     {
                         if (error.code === "ConditionalCheckFailedException")
                         {
-                            if (dataBag.retryCount < 1)
+                            if (dataBag.retryCount > 0)
                             {
-                                dataBag.retryCount++;
+                                dataBag.retryCount--;
                                 return workflow.emit("check for existing lock", dataBag);
                             }
                             else
