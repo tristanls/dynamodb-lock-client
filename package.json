@@ -16,7 +16,7 @@
     "aws-sdk": "2.506.0"
   },
   "dependencies": {
-    "joi": "14.3.1"
+    "@hapi/joi": "^15.1.0"
   },
   "repository": {
     "type": "git",
