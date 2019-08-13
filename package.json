@@ -9,14 +9,14 @@
     "readme": "node examples/readme.js"
   },
   "scriptvars": {
-    "latest_node": "v12.7.0"
+    "latest_node": "v12.8.0"
   },
   "main": "index.js",
   "devDependencies": {
-    "aws-sdk": "2.506.0"
+    "aws-sdk": "2.508.0"
   },
   "dependencies": {
-    "@hapi/joi": "^15.1.0"
+    "@hapi/joi": "15.1.0"
   },
   "repository": {
     "type": "git",
