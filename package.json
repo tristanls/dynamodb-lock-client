@@ -12,11 +12,11 @@
     "latest_node": "v12.8.0"
   },
   "main": "index.js",
-  "devDependencies": {
-    "aws-sdk": "2.508.0"
-  },
   "dependencies": {
     "@hapi/joi": "16.1.8"
+  },
+  "peerDependencies": {
+    "aws-sdk": "^2.508.0"
   },
   "repository": {
     "type": "git",
