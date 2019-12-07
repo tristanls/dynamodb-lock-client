@@ -17,9 +17,8 @@ const FailClosed = function(config)
 
     self._config = config;
 
-    const configValidationResult = Joi.validate(
+    const configValidationResult = FailClosed.schema.config.validate(
         self._config,
-        FailClosed.schema.config,
         {
             abortEarly: false,
             convert: false
@@ -123,9 +122,8 @@ const FailOpen = function(config)
 
     self._config = config;
 
-    const configValidationResult = Joi.validate(
+    const configValidationResult = FailOpen.schema.config.validate( // partitionKey NOT in [leaseDurationMs, owner, guid]
         self._config,
-        FailOpen.schema.config, // partitionKey NOT in [leaseDurationMs, owner, guid]
         {
             abortEarly: false,
             convert: false
