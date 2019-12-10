@@ -97,7 +97,8 @@ FailClosed.prototype.acquireLock = function(id, callback)
                             id: dataBag.id,
                             lockTable: self._lockTable,
                             partitionKey: self._partitionKey,
-                            guid: dataBag.guid
+                            guid: dataBag.guid,
+                            type: FailClosed
                         }
                     ));
                 }
@@ -318,7 +319,8 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     lockTable: self._lockTable,
                     owner: dataBag.owner,
                     partitionKey: self._partitionKey,
-                    trustLocalTime: self._trustLocalTime
+                    trustLocalTime: self._trustLocalTime,
+                    type: FailOpen
                 }
             ));
         }
@@ -343,6 +345,7 @@ const Lock = function(config)
     self._partitionKey = self._config.partitionKey;
     self._released = false;
     self._trustLocalTime = self._config.trustLocalTime;
+    self._type = self._config.type;
 
     self.fencingToken = self._fencingToken;
 
@@ -403,6 +406,10 @@ Lock.prototype.release = function(callback)
     if (self._heartbeatTimeout)
     {
         clearTimeout(self._heartbeatTimeout);
+        self._heartbeatTimeout = undefined;
+    }
+    if (self._type == FailOpen)
+    {
         return self._releaseFailOpen(callback);
     }
     else
