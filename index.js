@@ -31,6 +31,7 @@ const FailClosed = function(config)
     self._dynamodb = self._config.dynamodb;
     self._lockTable = self._config.lockTable;
     self._partitionKey = self._config.partitionKey;
+    self._rangeKey = self._config.rangeKey;
     self._acquirePeriodMs = self._config.acquirePeriodMs;
     self._retryCount = self._config.retryCount === undefined ? 1 : self._config.retryCount;
 };
@@ -113,6 +114,34 @@ FailClosed.prototype.acquireLock = function(id, callback)
     );
 };
 
+function buildNegativeConditionExpression(self) {
+    let expr = 'attribute_not_exists(#partitionKey)';
+    if (self._rangeKey) {
+        expr += ' and attribute_not_exists(#rangeKey)';
+        return `(${expr})`;
+    }
+    return expr;
+}
+
+function buildPositiveConditionExpression(self) {
+    let expr = 'attribute_exists(#partitionKey)';
+    if (self._rangeKey) {
+        expr += ' and attribute_exists(#rangeKey)';
+        return `(${expr})`;
+    }
+    return expr;
+}
+
+function buildExpressionAttributeNames(self) {
+    const names = {
+        "#partitionKey": self._partitionKey
+    };
+    if (self._rangeKey) {
+        names["#rangeKey"] = self._rangeKey;
+    }
+    return names;
+}
+
 const FailOpen = function(config)
 {
     if(!(this instanceof FailOpen))
@@ -137,6 +166,7 @@ const FailOpen = function(config)
     self._dynamodb = self._config.dynamodb;
     self._lockTable = self._config.lockTable;
     self._partitionKey = self._config.partitionKey;
+    self._rangeKey = self._config.rangeKey;
     self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
     self._leaseDurationMs = self._config.leaseDurationMs;
     self._trustLocalTime = self._config.trustLocalTime;
@@ -151,10 +181,18 @@ FailOpen.schema =
 FailOpen.prototype.acquireLock = function(id, callback)
 {
     const self = this;
+    let partitionKeyValue, rangeKeyValue;
+    if (Object.getPrototypeOf(id).constructor === Array) {
+        partitionKeyValue = id[0];
+        rangeKeyValue = id[1];
+    } else {
+        partitionKeyValue = id;
+    }
     const workflow = new events.EventEmitter();
     setImmediate(() => workflow.emit("start",
         {
-            id,
+            id: partitionKeyValue,
+            subId: rangeKeyValue,
             owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
             retryCount: self._config.retryCount,
             guid: crypto.randomBytes(64)
@@ -170,6 +208,9 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 ConsistentRead: true
             };
             params.Key[self._partitionKey] = dataBag.id;
+            if (dataBag.subId) {
+                params.Key[self._rangeKey] = dataBag.subId;
+            }
             self._dynamodb.get(params, (error, data) =>
                 {
                     if (error)
@@ -215,17 +256,17 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: "attribute_not_exists(#partitionKey)",
-                ExpressionAttributeNames:
-                {
-                    "#partitionKey": self._partitionKey
-                }
+                ConditionExpression: buildNegativeConditionExpression(self),
+                ExpressionAttributeNames: buildExpressionAttributeNames(self)
             };
             if (self._trustLocalTime)
             {
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
             params.Item[self._partitionKey] = dataBag.id;
+            if (dataBag.subId) {
+                params.Item[self._rangeKey] = dataBag.subId;
+            }
             self._dynamodb.put(params, (error, data) =>
                 {
                     if (error)
@@ -264,11 +305,8 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: "attribute_not_exists(#partitionKey) or (guid = :guid and fencingToken = :fencingToken)",
-                ExpressionAttributeNames:
-                {
-                    "#partitionKey": self._partitionKey
-                },
+                ConditionExpression: `${buildNegativeConditionExpression(self)} or (guid = :guid and fencingToken = :fencingToken)`,
+                ExpressionAttributeNames: buildExpressionAttributeNames(self),
                 ExpressionAttributeValues:
                 {
                     ":fencingToken": dataBag.lock.fencingToken,
@@ -280,6 +318,9 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
             params.Item[self._partitionKey] = dataBag.id;
+            if (dataBag.subId) {
+                params.Item[self._rangeKey] = dataBag.subId;
+            }
             self._dynamodb.put(params, (error, data) =>
                 {
                     if (error)
@@ -315,10 +356,12 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     guid: dataBag.guid,
                     heartbeatPeriodMs: self._heartbeatPeriodMs,
                     id: dataBag.id,
+                    subId: dataBag.subId,
                     leaseDurationMs: self._leaseDurationMs,
                     lockTable: self._lockTable,
                     owner: dataBag.owner,
                     partitionKey: self._partitionKey,
+                    rangeKey: self._rangeKey,
                     trustLocalTime: self._trustLocalTime,
                     type: FailOpen
                 }
@@ -339,10 +382,12 @@ const Lock = function(config)
     self._guid = self._config.guid;
     self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
     self._id = self._config.id;
+    self._subId = self._config.subId;
     self._leaseDurationMs = self._config.leaseDurationMs;
     self._lockTable = self._config.lockTable;
     self._owner = self._config.owner;
     self._partitionKey = self._config.partitionKey;
+    self._rangeKey = self._config.rangeKey;
     self._released = false;
     self._trustLocalTime = self._config.trustLocalTime;
     self._type = self._config.type;
@@ -364,11 +409,8 @@ const Lock = function(config)
                     owner: self._owner,
                     guid: newGuid
                 },
-                ConditionExpression: "attribute_exists(#partitionKey) and guid = :guid",
-                ExpressionAttributeNames:
-                {
-                    "#partitionKey": self._partitionKey
-                },
+                ConditionExpression: `${buildPositiveConditionExpression(self)} and guid = :guid`,
+                ExpressionAttributeNames: buildExpressionAttributeNames(self),
                 ExpressionAttributeValues:
                 {
                     ":guid": self._guid
@@ -379,6 +421,9 @@ const Lock = function(config)
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
             params.Item[self._partitionKey] = self._id;
+            if (self._subId) {
+                params.Item[self._rangeKey] = self._subId;
+            }
             self._dynamodb.put(params, (error, data) =>
                 {
                     if (error)
@@ -425,17 +470,17 @@ Lock.prototype._releaseFailClosed = function(callback)
     {
         TableName: self._lockTable,
         Key: {},
-        ConditionExpression: `attribute_exists(#partitionKey) and guid = :guid`,
-        ExpressionAttributeNames:
-        {
-            "#partitionKey": self._partitionKey
-        },
+        ConditionExpression: `${buildPositiveConditionExpression(self)} and guid = :guid`,
+        ExpressionAttributeNames: buildExpressionAttributeNames(self),
         ExpressionAttributeValues:
         {
             ":guid": self._guid
         }
     };
     params.Key[self._partitionKey] = self._id;
+    if (self._subId) {
+        params.Key[self._rangeKey] = self._subId;
+    }
     self._dynamodb.delete(params, (error, data) =>
         {
             if (error && error.code === "ConditionalCheckFailedException")
@@ -463,11 +508,8 @@ Lock.prototype._releaseFailOpen = function(callback)
             owner: self._owner,
             guid: self._guid
         },
-        ConditionExpression: "attribute_exists(#partitionKey) and guid = :guid",
-        ExpressionAttributeNames:
-        {
-            "#partitionKey": self._partitionKey
-        },
+        ConditionExpression: `${buildPositiveConditionExpression(self)} and guid = :guid`,
+        ExpressionAttributeNames: buildExpressionAttributeNames(self),
         ExpressionAttributeValues:
         {
             ":guid": self._guid
@@ -478,6 +520,9 @@ Lock.prototype._releaseFailOpen = function(callback)
         params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
     }
     params.Item[self._partitionKey] = self._id;
+    if (self._subId) {
+        params.Item[self._rangeKey] = self._subId;
+    }
     self._dynamodb.put(params, (error, data) =>
         {
             if (error && error.code === "ConditionalCheckFailedException")
