@@ -6,7 +6,9 @@
     "assert-latest-node": "(node -v | grep -q ${npm_package_scriptvars_latest_node}) || (echo \"Expected node version ${npm_package_scriptvars_latest_node}, got $(node -v)\" && exit 1)",
     "inject-examples": "node scripts/injectExamples.js",
     "prepublishOnly": "npm run inject-examples",
-    "readme": "node examples/readme.js"
+    "readme": "node examples/readme.js",
+    "mocha": "mocha './tests/**/test*.js' --exit --timeout 10000",
+    "test": "npm run mocha"
   },
   "scriptvars": {
     "latest_node": "v12.8.0"
@@ -35,5 +37,12 @@
     "Tom Yam",
     "Cooper Bell <john.cooper.bell@gmail.com>"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "chai-subset": "^1.6.0",
+    "dynamodb-local": "0.0.31",
+    "mocha": "^7.0.1",
+    "sinon": "^9.0.0"
+  }
 }
