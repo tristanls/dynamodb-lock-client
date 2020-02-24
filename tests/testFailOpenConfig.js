@@ -359,6 +359,23 @@ describe("FailOpen lock with partitionKey + rangeKey", () => {
         }).catch(err => assert.fail(err));
     });
 
+    it("cannot acquire lock for range_key = null", () => {
+
+        return new Promise((resolve, reject) => {
+            failOpenClient.acquireLock([LOCK_ID, null], (error, lock) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    console.log(`acquired open lock with fencing token ${lock.fencingToken}`);
+                    lock.on('error', () => console.error('failed to heartbeat!'));
+                    resolve(lock);
+                }
+            });
+        }).then(() => {
+            assert.fail('has to fail because range_key is null');
+        }).catch(err => expect(err.message).to.eq('The number of conditions on the keys is invalid'));
+    });
+
     it('releases the lock if there is a lock present', async () => {
 
         return new Promise((resolve, reject) => {
