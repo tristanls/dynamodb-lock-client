@@ -41,8 +41,13 @@ FailClosed.schema =
     config: require("./schema/failClosedConfig.js")
 };
 
-FailClosed.prototype.acquireLock = function(id, callback)
+FailClosed.prototype.acquireLock = function(id, opts, callback)
 {
+    if (callback === undefined)
+    {
+        callback = opts;
+        opts = {};
+    }
     const self = this;
     const workflow = new events.EventEmitter();
     setImmediate(() => workflow.emit("start",
@@ -70,6 +75,11 @@ FailClosed.prototype.acquireLock = function(id, callback)
                     "#partitionKey": self._partitionKey
                 }
             };
+            if (opts.readLock === true)
+            {
+                params.Item.readLock = 'readLock';
+                params.ConditionExpression += ' OR attribute_exists(readLock)';
+            }
             params.Item[self._partitionKey] = dataBag.id;
             self._dynamodb.put(params, (error, data) =>
                 {
@@ -178,8 +188,13 @@ FailOpen.schema =
     config: require("./schema/failOpenConfig.js")
 };
 
-FailOpen.prototype.acquireLock = function(id, callback)
+FailOpen.prototype.acquireLock = function(id, opts, callback)
 {
+    if (callback === undefined)
+    {
+        callback = opts;
+        opts = {};
+    }
     const self = this;
     let partitionKeyValue, rangeKeyValue;
     if (Object.getPrototypeOf(id).constructor === Array) {
@@ -259,6 +274,11 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 ConditionExpression: buildNegativeConditionExpression(self),
                 ExpressionAttributeNames: buildExpressionAttributeNames(self)
             };
+            if (opts.readLock === true)
+            {
+                params.Item.readLock = 'readLock';
+                params.ConditionExpression += ' OR attribute_exists(readLock)';
+            }
             if (self._trustLocalTime)
             {
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
