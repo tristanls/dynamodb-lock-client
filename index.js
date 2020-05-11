@@ -94,7 +94,6 @@ FailClosed.prototype.acquireLock = function(id, callback)
                     return callback(undefined, new Lock(
                         {
                             dynamodb: self._dynamodb,
-                            failClosed: true,
                             id: dataBag.id,
                             lockTable: self._lockTable,
                             partitionKey: self._partitionKey,
@@ -194,7 +193,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
             id: partitionKeyValue,
             subId: rangeKeyValue,
             owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
-            retryCount: self._config.retryCount,
+            retryCount: self._retryCount,
             guid: crypto.randomBytes(64)
         }
     ));
@@ -204,10 +203,12 @@ FailOpen.prototype.acquireLock = function(id, callback)
             const params =
             {
                 TableName: self._lockTable,
-                Key: {},
+                Key:
+                {
+                    [self._partitionKey]: dataBag.id
+                },
                 ConsistentRead: true
             };
-            params.Key[self._partitionKey] = dataBag.id;
             if (dataBag.subId) {
                 params.Key[self._rangeKey] = dataBag.subId;
             }
@@ -251,6 +252,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 TableName: self._lockTable,
                 Item:
                 {
+                    [self._partitionKey]: dataBag.id,
                     fencingToken: dataBag.fencingToken,
                     leaseDurationMs: self._leaseDurationMs,
                     owner: dataBag.owner,
@@ -263,7 +265,6 @@ FailOpen.prototype.acquireLock = function(id, callback)
             {
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
-            params.Item[self._partitionKey] = dataBag.id;
             if (dataBag.subId) {
                 params.Item[self._rangeKey] = dataBag.subId;
             }
@@ -377,7 +378,6 @@ const Lock = function(config)
 
     self._config = config;
     self._dynamodb = self._config.dynamodb;
-    self._failClosed = self._config.failClosed;
     self._fencingToken = self._config.fencingToken;
     self._guid = self._config.guid;
     self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
