@@ -15,6 +15,7 @@ const FailClosed = function(config)
     }
     const self = this;
 
+    // constant configuration
     self._config = config;
 
     const configValidationResult = FailClosed.schema.config.validate(
@@ -28,11 +29,6 @@ const FailClosed = function(config)
     {
         throw configValidationResult.error;
     }
-    self._dynamodb = self._config.dynamodb;
-    self._lockTable = self._config.lockTable;
-    self._partitionKey = self._config.partitionKey;
-    self._rangeKey = self._config.rangeKey;
-    self._acquirePeriodMs = self._config.acquirePeriodMs;
     self._retryCount = self._config.retryCount === undefined ? 1 : self._config.retryCount;
 };
 
@@ -44,10 +40,25 @@ FailClosed.schema =
 FailClosed.prototype.acquireLock = function(id, callback)
 {
     const self = this;
+    let partitionID, sortID;
+    if (typeof id === "object")
+    {
+        partitionID = id[self._config.partitionKey];
+        sortID = id[self._config.sortKey];
+    }
+    else
+    {
+        partitionID = id;
+    }
+    if (self._config.sortKey && sortID === undefined)
+    {
+        return callback(new Error("Lock ID is missing required sortKey value"));
+    }
     const workflow = new events.EventEmitter();
     setImmediate(() => workflow.emit("start",
         {
-            id,
+            partitionID,
+            sortID,
             owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
             retryCount: self._retryCount,
             guid: crypto.randomBytes(64)
@@ -61,17 +72,18 @@ FailClosed.prototype.acquireLock = function(id, callback)
                 TableName: self._config.lockTable,
                 Item:
                 {
+                    [self._config.partitionKey]: dataBag.partitionID,
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: "attribute_not_exists(#partitionKey)",
-                ExpressionAttributeNames:
-                {
-                    "#partitionKey": self._config.partitionKey
-                }
+                ConditionExpression: buildAttributeNotExistsExpression(self),
+                ExpressionAttributeNames: buildExpressionAttributeNames(self)
             };
-            params.Item[self._partitionKey] = dataBag.id;
-            self._dynamodb.put(params, (error, data) =>
+            if (self._config.sortKey)
+            {
+                params.Item[self._config.sortKey] = dataBag.sortID;
+            }
+            self._config.dynamodb.put(params, (error, data) =>
                 {
                     if (error)
                     {
@@ -93,11 +105,13 @@ FailClosed.prototype.acquireLock = function(id, callback)
                     }
                     return callback(undefined, new Lock(
                         {
-                            dynamodb: self._dynamodb,
-                            id: dataBag.id,
-                            lockTable: self._lockTable,
-                            partitionKey: self._partitionKey,
+                            dynamodb: self._config.dynamodb,
                             guid: dataBag.guid,
+                            lockTable: self._config.lockTable,
+                            partitionID: dataBag.partitionID,
+                            partitionKey: self._config.partitionKey,
+                            sortID: dataBag.sortID,
+                            sortKey: self._config.sortKey,
                             type: FailClosed
                         }
                     ));
@@ -108,35 +122,42 @@ FailClosed.prototype.acquireLock = function(id, callback)
     workflow.on("retry acquire lock", dataBag =>
         {
             dataBag.retryCount--;
-            setTimeout(() => workflow.emit("acquire lock", dataBag), self._acquirePeriodMs);
+            setTimeout(() => workflow.emit("acquire lock", dataBag), self._config.acquirePeriodMs);
         }
     );
 };
 
-function buildNegativeConditionExpression(self) {
-    let expr = 'attribute_not_exists(#partitionKey)';
-    if (self._config.sortKey) {
-        expr += ' and attribute_not_exists(#sortKey)';
+function buildAttributeExistsExpression(self)
+{
+    let expr = "attribute_exists(#partitionKey)";
+    if (self._config.sortKey)
+    {
+        expr += " and attribute_exists(#sortKey)";
         return `(${expr})`;
     }
     return expr;
 }
 
-function buildPositiveConditionExpression(self) {
-    let expr = 'attribute_exists(#partitionKey)';
-    if (self._config.sortKey) {
-        expr += ' and attribute_exists(#sortKey)';
+function buildAttributeNotExistsExpression(self)
+{
+    let expr = "attribute_not_exists(#partitionKey)";
+    if (self._config.sortKey)
+    {
+        expr += " and attribute_not_exists(#sortKey)";
         return `(${expr})`;
     }
     return expr;
 }
 
-function buildExpressionAttributeNames(self) {
-    const names = {
-        "#partitionKey": self._partitionKey
+function buildExpressionAttributeNames(self)
+{
+    const names =
+    {
+        "#partitionKey": self._config.partitionKey
     };
-    if (self._config.sortKey) {
-        names["#sortKey"] = self._sortKey;
+    if (self._config.sortKey)
+    {
+        names["#sortKey"] = self._config.sortKey;
     }
     return names;
 }
@@ -149,9 +170,10 @@ const FailOpen = function(config)
     }
     const self = this;
 
+    // constant configuration
     self._config = config;
 
-    const configValidationResult = FailOpen.schema.config.validate( // partitionKey NOT in [leaseDurationMs, owner, guid]
+    const configValidationResult = FailOpen.schema.config.validate(
         self._config,
         {
             abortEarly: false,
@@ -162,13 +184,6 @@ const FailOpen = function(config)
     {
         throw configValidationResult.error;
     }
-    self._dynamodb = self._config.dynamodb;
-    self._lockTable = self._config.lockTable;
-    self._partitionKey = self._config.partitionKey;
-    self._sortKey = self._config.sortKey;
-    self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
-    self._leaseDurationMs = self._config.leaseDurationMs;
-    self._trustLocalTime = self._config.trustLocalTime;
     self._retryCount = self._config.retryCount === undefined ? 1 : self._config.retryCount;
 };
 
@@ -181,19 +196,23 @@ FailOpen.prototype.acquireLock = function(id, callback)
 {
     const self = this;
     let partitionID, sortID;
-    if (Array.isArray(id))
+    if (typeof id === "object")
     {
-        partitionID = id[0];
-        sortID = id[1];
+        partitionID = id[self._config.partitionKey];
+        sortID = id[self._config.sortKey];
     }
     else
     {
         partitionID = id;
     }
+    if (self._config.sortKey && sortID === undefined)
+    {
+        return callback(new Error("Lock ID is missing required sortKey value"));
+    }
     const workflow = new events.EventEmitter();
     setImmediate(() => workflow.emit("start",
         {
-            id: partitionID,
+            partitionID,
             sortID,
             owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
             retryCount: self._retryCount,
@@ -208,15 +227,15 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 TableName: self._config.lockTable,
                 Key:
                 {
-                    [self._config.partitionKey]: dataBag.id
+                    [self._config.partitionKey]: dataBag.partitionID
                 },
                 ConsistentRead: true
             };
-            if (dataBag.sortID)
+            if (self._config.sortKey)
             {
                 params.Key[self._config.sortKey] = dataBag.sortID;
             }
-            self._dynamodb.get(params, (error, data) =>
+            self._config.dynamodb.get(params, (error, data) =>
                 {
                     if (error)
                     {
@@ -256,13 +275,13 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 TableName: self._config.lockTable,
                 Item:
                 {
-                    [self._config.partitionKey]: dataBag.id,
+                    [self._config.partitionKey]: dataBag.partitionID,
                     fencingToken: dataBag.fencingToken,
                     leaseDurationMs: self._config.leaseDurationMs,
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: buildNegativeConditionExpression(self),
+                ConditionExpression: buildAttributeNotExistsExpression(self),
                 ExpressionAttributeNames: buildExpressionAttributeNames(self)
             };
             if (self._trustLocalTime)
@@ -273,7 +292,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
             {
                 params.Item[self._config.sortKey] = dataBag.sortID;
             }
-            self._dynamodb.put(params, (error, data) =>
+            self._config.dynamodb.put(params, (error, data) =>
                 {
                     if (error)
                     {
@@ -306,13 +325,13 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 TableName: self._config.lockTable,
                 Item:
                 {
-                    [self._config.partitionKey]: dataBag.id,
+                    [self._config.partitionKey]: dataBag.partitionID,
                     fencingToken: dataBag.fencingToken,
                     leaseDurationMs: self._config.leaseDurationMs,
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
-                ConditionExpression: `${buildNegativeConditionExpression(self)} or (guid = :guid and fencingToken = :fencingToken)`,
+                ConditionExpression: `${buildAttributeNotExistsExpression(self)} or (guid = :guid and fencingToken = :fencingToken)`,
                 ExpressionAttributeNames: buildExpressionAttributeNames(self),
                 ExpressionAttributeValues:
                 {
@@ -328,7 +347,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
             {
                 params.Item[self._config.sortKey] = dataBag.sortID;
             }
-            self._dynamodb.put(params, (error, data) =>
+            self._config.dynamodb.put(params, (error, data) =>
                 {
                     if (error)
                     {
@@ -362,10 +381,10 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     fencingToken: dataBag.fencingToken,
                     guid: dataBag.guid,
                     heartbeatPeriodMs: self._config.heartbeatPeriodMs,
-                    id: dataBag.id,
                     leaseDurationMs: self._config.leaseDurationMs,
                     lockTable: self._config.lockTable,
                     owner: dataBag.owner,
+                    partitionID: dataBag.partitionID,
                     partitionKey: self._config.partitionKey,
                     sortID: dataBag.sortID,
                     sortKey: self._config.sortKey,
@@ -382,69 +401,59 @@ const Lock = function(config)
     const self = this;
     events.EventEmitter.call(self);
 
+    // constant Lock configuration
     self._config = config;
-    self._dynamodb = self._config.dynamodb;
-    self._fencingToken = self._config.fencingToken;
-    self._guid = self._config.guid;
-    self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
-    self._id = self._config.id;
-    self._subId = self._config.subId;
-    self._leaseDurationMs = self._config.leaseDurationMs;
-    self._lockTable = self._config.lockTable;
-    self._owner = self._config.owner;
-    self._partitionKey = self._config.partitionKey;
-    self._rangeKey = self._config.rangeKey;
-    self._released = false;
-    self._trustLocalTime = self._config.trustLocalTime;
-    self._type = self._config.type;
 
-    self.fencingToken = self._fencingToken;
+    // variable properties
+    self.guid = self._config.guid;
+    self.released = false;
 
-    if (self._heartbeatPeriodMs)
+    if (self._config.heartbeatPeriodMs)
     {
         const refreshLock = function()
         {
             const newGuid = crypto.randomBytes(64);
             const params =
             {
-                TableName: self._lockTable,
+                TableName: self._config.lockTable,
                 Item:
                 {
-                    fencingToken: self._fencingToken,
-                    leaseDurationMs: self._leaseDurationMs,
-                    owner: self._owner,
+                    [self._config.partitionKey]: self._config.partitionID,
+                    fencingToken: self._config.fencingToken,
+                    leaseDurationMs: self._config.leaseDurationMs,
+                    owner: self._config.owner,
                     guid: newGuid
                 },
-                ConditionExpression: `${buildPositiveConditionExpression(self)} and guid = :guid`,
+                ConditionExpression: `${buildAttributeExistsExpression(self)} and guid = :guid`,
                 ExpressionAttributeNames: buildExpressionAttributeNames(self),
                 ExpressionAttributeValues:
                 {
-                    ":guid": self._guid
+                    ":guid": self.guid
                 }
             };
-            if (self._trustLocalTime)
+            if (self._config.trustLocalTime)
             {
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
-            params.Item[self._partitionKey] = self._id;
-            if (self._subId) {
-                params.Item[self._rangeKey] = self._subId;
+            if (self._config.sortKey)
+            {
+                params.Item[self._config.sortKey] = self._config.sortID;
             }
-            self._dynamodb.put(params, (error, data) =>
+            self._config.dynamodb.put(params, (error, data) =>
                 {
                     if (error)
                     {
                         return self.emit("error", error);
                     }
-                    self._guid = newGuid;
-                    if (!self._released) // See https://github.com/tristanls/dynamodb-lock-client/issues/1
+                    self.guid = newGuid;
+                    if (!self.released) // See https://github.com/tristanls/dynamodb-lock-client/issues/1
                     {
-                        self._heartbeatTimeout = setTimeout(refreshLock, self._heartbeatPeriodMs);
+                        self.heartbeatTimeout = setTimeout(refreshLock, self._config.heartbeatPeriodMs);
                     }
                 }
             );
         };
-        self._heartbeatTimeout = setTimeout(refreshLock, self._heartbeatPeriodMs);
+        self.heartbeatTimeout = setTimeout(refreshLock, self._config.heartbeatPeriodMs);
     }
 };
 
@@ -453,13 +462,13 @@ util.inherits(Lock, events.EventEmitter);
 Lock.prototype.release = function(callback)
 {
     const self = this;
-    self._released = true;
-    if (self._heartbeatTimeout)
+    self.released = true;
+    if (self.heartbeatTimeout)
     {
-        clearTimeout(self._heartbeatTimeout);
-        self._heartbeatTimeout = undefined;
+        clearTimeout(self.heartbeatTimeout);
+        self.heartbeatTimeout = undefined;
     }
-    if (self._type == FailOpen)
+    if (self._config.type == FailOpen)
     {
         return self._releaseFailOpen(callback);
     }
@@ -474,20 +483,23 @@ Lock.prototype._releaseFailClosed = function(callback)
     const self = this;
     const params =
     {
-        TableName: self._lockTable,
-        Key: {},
-        ConditionExpression: `${buildPositiveConditionExpression(self)} and guid = :guid`,
+        TableName: self._config.lockTable,
+        Key:
+        {
+            [self._config.partitionKey]: self._config.partitionID
+        },
+        ConditionExpression: `${buildAttributeExistsExpression(self)} and guid = :guid`,
         ExpressionAttributeNames: buildExpressionAttributeNames(self),
         ExpressionAttributeValues:
         {
-            ":guid": self._guid
+            ":guid": self.guid
         }
     };
-    params.Key[self._partitionKey] = self._id;
-    if (self._subId) {
-        params.Key[self._rangeKey] = self._subId;
+    if (self._config.sortKey)
+    {
+        params.Key[self._config.sortKey] = self._config.sortID;
     }
-    self._dynamodb.delete(params, (error, data) =>
+    self._config.dynamodb.delete(params, (error, data) =>
         {
             if (error && error.code === "ConditionalCheckFailedException")
             {
@@ -506,30 +518,31 @@ Lock.prototype._releaseFailOpen = function(callback)
     const self = this;
     const params =
     {
-        TableName: self._lockTable,
+        TableName: self._config.lockTable,
         Item:
         {
-            fencingToken: self._fencingToken,
+            [self._config.partitionKey]: self._config.partitionID,
+            fencingToken: self._config.fencingToken,
             leaseDurationMs: 1,
-            owner: self._owner,
-            guid: self._guid
+            owner: self._config.owner,
+            guid: self.guid
         },
-        ConditionExpression: `${buildPositiveConditionExpression(self)} and guid = :guid`,
+        ConditionExpression: `${buildAttributeExistsExpression(self)} and guid = :guid`,
         ExpressionAttributeNames: buildExpressionAttributeNames(self),
         ExpressionAttributeValues:
         {
-            ":guid": self._guid
+            ":guid": self.guid
         }
     };
-    if (self._trustLocalTime)
+    if (self._config.trustLocalTime)
     {
         params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
     }
-    params.Item[self._partitionKey] = self._id;
-    if (self._subId) {
-        params.Item[self._rangeKey] = self._subId;
+    if (self._config.sortKey)
+    {
+        params.Item[self._config.sortKey] = self._config.sortID;
     }
-    self._dynamodb.put(params, (error, data) =>
+    self._config.dynamodb.put(params, (error, data) =>
         {
             if (error && error.code === "ConditionalCheckFailedException")
             {

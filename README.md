@@ -95,7 +95,11 @@ failOpenClient.acquireLock("my-fail-open-lock", (error, lock) =>
 
 ## Tests
 
-No tests at this time.
+At this time, test are implemented for FailOpen lock acquisition and release.
+
+```
+    npm test
+```
 
 ## Documentation
 
@@ -103,6 +107,8 @@ No tests at this time.
   * [DynamoDBLockClient](#dynamodblockclient)
 
 ### Setting up the lock table in DynamoDB
+
+#### Recommended
 
 The DynamoDB lock table needs to be created independently. The following is an example CloudFormation template that would create such a lock table:
 
@@ -120,22 +126,8 @@ Resources:
       KeySchema:
         - AttributeName: id
           KeyType: HASH
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref DistributedLocksStoreReadCapacityUnits
-        WriteCapacityUnits: !Ref DistributedLocksStoreWriteCapacityUnits
       TableName: "distributed-locks-store"
-
-Parameters:
-
-  DistributedLocksStoreReadCapacityUnits:
-    Type: Number
-    Default: 1
-    Description: DistributedLocksStore ReadCapacityUnits
-
-  DistributedLocksStoreWriteCapacityUnits:
-    Type: Number
-    Default: 1
-    Description: DistributedLocksStore WriteCapacityUnits
+      BillingMode: PAY_PER_REQUEST
 
 Outputs:
 
@@ -145,7 +137,42 @@ Outputs:
 
 The template above would make your `config.partitionKey == "id"` and your `config.lockTable == "distributed-lock-store"`.
 
-You can choose to call your `config.partitionKey` any valid string except `guid` or `owner` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table.
+You can choose to call your `config.partitionKey` any valid string except `fencingToken`, `leaseDurationMs`, `lockAcquiredTimeUnixMs`, `owner`, or `guid` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table.
+
+#### Using sort key
+
+In some cases, you may be constrained to use a DynamoDB table that requires to specify a sort key. The following is an example CloudFormation template that would create such a lock table:
+
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources:
+
+  DistributedLocksStore:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: sortID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: sortID
+          KeyType: RANGE
+      TableName: "distributed-locks-store"
+      BillingMode: PAY_PER_REQUEST
+
+Outputs:
+
+  DistributedLocksStore:
+    Value: !GetAtt DistributedLocksStore.Arn
+```
+
+The template above would make your `config.partitionKey == "id"`, `config.sortKey = "sortID"`, and your `config.lockTable == "distributed-lock-store"`.
+
+You can choose to call your `config.partitionKey` and `config.sortKey` any valid string except `fencingToken`, `leaseDurationMs`, `lockAcquiredTimeUnixMs`, `owner`, or `guid` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table. Your `config.sortKey` has to correspond to the sort key (`RANGE`) of the Primary Key of your DynamoDB table.
 
 ### DynamoDBLockClient
 
@@ -162,6 +189,7 @@ You can choose to call your `config.partitionKey` any valid string except `guid`
     * `dynamodb`: _AWS.DynamoDB.DocumentClient_ Instance of AWS DynamoDB DocumentClient.
     * `lockTable`: _String_ Name of lock table to use.
     * `partitionKey`: _String_ Name of table partition key (hash key) to use.
+    * `sortKey`: _String_ _(Default: undefined)_ Optional name of table sort key (range key) to use. If specified, all lock ids will be required to contain a `sortKey`.
     * `acquirePeriodMs`: _Number_ How long to wait for the lock before giving up. Whatever operation this lock is protecting should take less time than `acquirePeriodMs`.
     * `owner`: _String_ Customize owner name for lock (optional).
     * `retryCount`: _Number_ _(Default: 1)_ Number of times to retry lock acquisition after initial failure. No retries will occur if set to `0`.
@@ -175,6 +203,7 @@ Creates a "fail closed" client that acquires "fail closed" locks. If process cra
     * `dynamodb`: _AWS.DynamoDB.DocumentClient_ Instance of AWS DynamoDB DocumentClient.
     * `lockTable`: _String_ Name of lock table to use.
     * `partitionKey`: _String_ Name of table partition key (hash key) to use.
+    * `sortKey`: _String_ _(Default: undefined)_ Optional name of table sort key (range key) to use. If specified, all lock ids will be required to contain a `sortKey`.
     * `heartbeatPeriodMs`: _Number_ _(Default: undefined)_ Optional period at which to send heartbeats in order to keep the lock locked. Providing this option will cause heartbeats to be sent.
     * `leaseDurationMs`: _Number_ The length of lock lease duration. If the lock is not renewed via a heartbeat within `leaseDurationMs` it will be automatically released.
     * `owner`: _String_ Customize owner name for lock (optional).
@@ -186,7 +215,21 @@ Creates a "fail open" client that acquires "fail open" locks. If process crashes
 
 ### client.acquireLock(id, callback)
 
-  * `id`: _String\|Buffer\|Number_ Unique identifier for the lock. The type must correspond to lock table's partition key type.
+  * `id`: _String\|Buffer\|Number\|Object_ Unique identifier for the lock. If the type of `id` is _String\|Buffer\|Number_ the type must correspond to lock table's partition key type. If the type of `id` is _Object_, it is expected to have the following format:
+     ```
+     {
+       [config.partitionKey]: String|Buffer|Number,
+       [config.sortKey]: String|Buffer|Number
+     }
+     ```
+     For example, if `config.partitionKey = "myPartitionKey"` and `config.sortKey = "mySortKey"` and partition key value is `id1234` and sort key value is `abcd`, then the _Object_ would be:
+     ```
+     {
+       myPartitionKey: "id1234",
+       mySortKey: "abcd"
+     }
+     ```
+     Sort key part of `id` is only required if lock is configured with a sort key. The types of partition key and sort key must correspond to lock table's partition key and sort key types.
   * `callback`: _Function_ `(error, lock) => {}`
     * `error`: _Error_ Error, if any.
     * `lock`: _DynamoDBLockClient.Lock_ Successfully acquired lock object. Lock object is an instance of `EventEmitter`. If the `lock` is acquired via a fail open `client` configured to heartbeat, then the returned `lock` may emit an `error` event if a `heartbeat` operation fails.

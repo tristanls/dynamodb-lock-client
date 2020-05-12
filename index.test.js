@@ -14,28 +14,14 @@ const OWNER = "me";
 const LOCK_ID = "lockID";
 const SORT_ID = "sortID";
 
-// describe("FailClosed lock acquisition", () =>
-// {
-//         describe("puts item into DynamoDB table", () =>
-//         {
-//             describe("if non-ConditionalCheckFailedException error", () =>
-//             {
-//                 it("returns FailedToAcquireLock error", done =>
-//                     {
-
-//                     }
-//                 );
-//             });
-//             describe("if ConditionalCheckFailedException error", () =>
-//             {
-//                 it("")
-//             });
-//         });
-// });
+describe("FailClosed lock acquisition", () =>
+{
+    // TODO
+});
 
 describe("FailClosed lock release", () =>
 {
-
+    // TODO
 });
 
 describe("FailOpen lock acquisition", () =>
@@ -144,7 +130,11 @@ describe("FailOpen lock acquisition", () =>
                                 }
                             );
                             const failOpen = new DynamoDBLockClient.FailOpen(config);
-                            failOpen.acquireLock(LOCK_ID, (err, lock) =>
+                            failOpen.acquireLock(
+                                {
+                                    [PARTITION_KEY]: LOCK_ID
+                                },
+                                (err, lock) =>
                                 {
                                     expect(err).toBe(error);
                                     expect(lock).toBe(undefined);
@@ -221,7 +211,11 @@ describe("FailOpen lock acquisition", () =>
                                 {
                                     config.dynamodb = dynamodb
                                     const failOpen = new DynamoDBLockClient.FailOpen(config);
-                                    failOpen.acquireLock(LOCK_ID, (err, lock) =>
+                                    failOpen.acquireLock(
+                                        {
+                                            [PARTITION_KEY]: LOCK_ID
+                                        },
+                                        (err, lock) =>
                                         {
                                             expect(err.message).toBe("Failed to acquire lock.");
                                             expect(err.code).toBe("FailedToAcquireLock");
@@ -254,14 +248,15 @@ describe("FailOpen lock acquisition", () =>
                                                     fencingToken: 1,
                                                     guid: expect.any(Buffer),
                                                     heartbeatPeriodMs: HEARTBEAT_PERIOD_MS,
-                                                    id: LOCK_ID,
                                                     leaseDurationMs: LEASE_DURATION_MS,
                                                     lockTable: LOCK_TABLE,
                                                     owner: OWNER,
+                                                    partitionID: LOCK_ID,
                                                     partitionKey: PARTITION_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                _released: false
+                                                guid: expect.any(Buffer),
+                                                released: false
                                             }
                                         )
                                     );
@@ -337,7 +332,11 @@ describe("FailOpen lock acquisition", () =>
                                 }
                             );
                             const failOpen = new DynamoDBLockClient.FailOpen(config);
-                            failOpen.acquireLock(LOCK_ID, (err, lock) =>
+                            failOpen.acquireLock(
+                                {
+                                    [PARTITION_KEY]: LOCK_ID
+                                },
+                                (err, lock) =>
                                 {
                                     expect(err).toBe(error);
                                     expect(lock).toBe(undefined);
@@ -414,7 +413,11 @@ describe("FailOpen lock acquisition", () =>
                                 {
                                     config.dynamodb = dynamodb
                                     const failOpen = new DynamoDBLockClient.FailOpen(config);
-                                    failOpen.acquireLock(LOCK_ID, (err, lock) =>
+                                    failOpen.acquireLock(
+                                        {
+                                            [PARTITION_KEY]: LOCK_ID
+                                        },
+                                        (err, lock) =>
                                         {
                                             expect(err.message).toBe("Failed to acquire lock.");
                                             expect(err.code).toBe("FailedToAcquireLock");
@@ -452,14 +455,15 @@ describe("FailOpen lock acquisition", () =>
                                                     fencingToken: existingItem.fencingToken + 1,
                                                     guid: newGUID,
                                                     heartbeatPeriodMs: HEARTBEAT_PERIOD_MS,
-                                                    id: LOCK_ID,
                                                     leaseDurationMs: LEASE_DURATION_MS,
                                                     lockTable: LOCK_TABLE,
                                                     owner: OWNER,
+                                                    partitionID: LOCK_ID,
                                                     partitionKey: PARTITION_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                _released: false
+                                                guid: newGUID,
+                                                released: false
                                             }
                                         )
                                     );
@@ -477,6 +481,22 @@ describe("FailOpen lock acquisition", () =>
         beforeEach(() =>
             {
                 config.sortKey = SORT_KEY;
+            }
+        );
+        test("invokes callback with error if configured with sortKey but sortKey value is not provided", done =>
+            {
+                config.dynamodb = dynamodb;
+                const failOpen = new DynamoDBLockClient.FailOpen(config);
+                failOpen.acquireLock(
+                    {
+                        [PARTITION_KEY]: LOCK_ID
+                    },
+                    (err, lock) =>
+                    {
+                        expect(err).toEqual(new Error("Lock ID is missing required sortKey value"));
+                        done();
+                    }
+                );
             }
         );
         describe("gets item from DynamoDB table", () =>
@@ -507,11 +527,11 @@ describe("FailOpen lock acquisition", () =>
                         }
                     );
                     const failOpen = new DynamoDBLockClient.FailOpen(config);
-                    failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                    failOpen.acquireLock(
+                        {
+                            [PARTITION_KEY]: LOCK_ID,
+                            [SORT_KEY]: SORT_ID
+                        },
                         (err, lock) =>
                         {
                             expect(err).toBe(error);
@@ -570,11 +590,11 @@ describe("FailOpen lock acquisition", () =>
                                 }
                             );
                             const failOpen = new DynamoDBLockClient.FailOpen(config);
-                            failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                            failOpen.acquireLock(
+                                {
+                                    [PARTITION_KEY]: LOCK_ID,
+                                    [SORT_KEY]: SORT_ID
+                                },
                                 (err, lock) =>
                                 {
                                     expect(err).toBe(error);
@@ -632,11 +652,11 @@ describe("FailOpen lock acquisition", () =>
                                         }
                                     );
                                     const failOpen = new DynamoDBLockClient.FailOpen(config);
-                                    failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                                    failOpen.acquireLock(
+                                        {
+                                            [PARTITION_KEY]: LOCK_ID,
+                                            [SORT_KEY]: SORT_ID
+                                        },
                                         (e, lock) =>
                                         {
                                             expect(e).toBe(err);
@@ -658,11 +678,11 @@ describe("FailOpen lock acquisition", () =>
                                 {
                                     config.dynamodb = dynamodb
                                     const failOpen = new DynamoDBLockClient.FailOpen(config);
-                                    failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                                    failOpen.acquireLock(
+                                        {
+                                            [PARTITION_KEY]: LOCK_ID,
+                                            [SORT_KEY]: SORT_ID
+                                        },
                                         (err, lock) =>
                                         {
                                             expect(err.message).toBe("Failed to acquire lock.");
@@ -684,11 +704,11 @@ describe("FailOpen lock acquisition", () =>
                                 }
                             );
                             const failOpen = new DynamoDBLockClient.FailOpen(config);
-                            failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                            failOpen.acquireLock(
+                                {
+                                    [PARTITION_KEY]: LOCK_ID,
+                                    [SORT_KEY]: SORT_ID
+                                },
                                 (error, lock) =>
                                 {
                                     expect(error).toBe(undefined);
@@ -701,16 +721,17 @@ describe("FailOpen lock acquisition", () =>
                                                     fencingToken: 1,
                                                     guid: expect.any(Buffer),
                                                     heartbeatPeriodMs: HEARTBEAT_PERIOD_MS,
-                                                    id: LOCK_ID,
                                                     leaseDurationMs: LEASE_DURATION_MS,
                                                     lockTable: LOCK_TABLE,
                                                     owner: OWNER,
+                                                    partitionID: LOCK_ID,
                                                     partitionKey: PARTITION_KEY,
                                                     sortID: SORT_ID,
                                                     sortKey: SORT_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                _released: false
+                                                guid: expect.any(Buffer),
+                                                released: false
                                             }
                                         )
                                     );
@@ -789,11 +810,11 @@ describe("FailOpen lock acquisition", () =>
                                 }
                             );
                             const failOpen = new DynamoDBLockClient.FailOpen(config);
-                            failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                            failOpen.acquireLock(
+                                {
+                                    [PARTITION_KEY]: LOCK_ID,
+                                    [SORT_KEY]: SORT_ID
+                                },
                                 (err, lock) =>
                                 {
                                     expect(err).toBe(error);
@@ -851,11 +872,11 @@ describe("FailOpen lock acquisition", () =>
                                         }
                                     );
                                     const failOpen = new DynamoDBLockClient.FailOpen(config);
-                                    failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                                    failOpen.acquireLock(
+                                        {
+                                            [PARTITION_KEY]: LOCK_ID,
+                                            [SORT_KEY]: SORT_ID
+                                        },
                                         (e, lock) =>
                                         {
                                             expect(e).toBe(err);
@@ -877,11 +898,11 @@ describe("FailOpen lock acquisition", () =>
                                 {
                                     config.dynamodb = dynamodb
                                     const failOpen = new DynamoDBLockClient.FailOpen(config);
-                                    failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                                    failOpen.acquireLock(
+                                        {
+                                            [PARTITION_KEY]: LOCK_ID,
+                                            [SORT_KEY]: SORT_ID
+                                        },
                                         (err, lock) =>
                                         {
                                             expect(err.message).toBe("Failed to acquire lock.");
@@ -908,11 +929,11 @@ describe("FailOpen lock acquisition", () =>
                                 }
                             );
                             const failOpen = new DynamoDBLockClient.FailOpen(config);
-                            failOpen.acquireLock([LOCK_ID,SORT_ID],
-                        // {
-                        //     partitionKey: LOCK_ID,
-                        //     sortKey: SORT_ID
-                        // },
+                            failOpen.acquireLock(
+                                {
+                                    [PARTITION_KEY]: LOCK_ID,
+                                    [SORT_KEY]: SORT_ID
+                                },
                                 (error, lock) =>
                                 {
                                     expect(error).toBe(undefined);
@@ -925,16 +946,17 @@ describe("FailOpen lock acquisition", () =>
                                                     fencingToken: existingItem.fencingToken + 1,
                                                     guid: newGUID,
                                                     heartbeatPeriodMs: HEARTBEAT_PERIOD_MS,
-                                                    id: LOCK_ID,
                                                     leaseDurationMs: LEASE_DURATION_MS,
                                                     lockTable: LOCK_TABLE,
                                                     owner: OWNER,
+                                                    partitionID: LOCK_ID,
                                                     partitionKey: PARTITION_KEY,
                                                     sortID: SORT_ID,
                                                     sortKey: SORT_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                _released: false
+                                                guid: newGUID,
+                                                released: false
                                             }
                                         )
                                     );
@@ -951,5 +973,169 @@ describe("FailOpen lock acquisition", () =>
 
 describe("FailOpen lock release", () =>
 {
-
+    let config, dynamodb;
+    beforeEach(() =>
+        {
+            config =
+            {
+                lockTable: LOCK_TABLE,
+                partitionKey: PARTITION_KEY,
+                heartbeatPeriodMs: 1e4,
+                leaseDurationMs: 1e5,
+                owner: OWNER
+            };
+            dynamodb =
+            {
+                delete: () => {},
+                get: () => {},
+                put: () => {}
+            }
+        }
+    );
+    describe("using partitionKey", () =>
+    {
+        let guid, lock;
+        beforeEach(() =>
+            {
+                guid = crypto.randomBytes(64);
+                lock = new DynamoDBLockClient.Lock(
+                    {
+                        dynamodb,
+                        fencingToken: 42,
+                        guid,
+                        heartbeatPeriodMs: config.heartbeatPeriodMs,
+                        leaseDurationMs: config.leaseDurationMs,
+                        lockTable: config.lockTable,
+                        owner: config.owner,
+                        partitionID: LOCK_ID,
+                        partitionKey: config.partitionKey,
+                        type: DynamoDBLockClient.FailOpen
+                    }
+                );
+            }
+        );
+        describe("puts updated item with leaseDurationMs set to 1", () =>
+        {
+            test("if non-ConditionalCheckFailedException error, invokes callback with error", done =>
+                {
+                    const finish = countdown(done, 2);
+                    const error = new Error("boom");
+                    config.dynamodb = Object.assign(
+                        dynamodb,
+                        {
+                            put(params, callback)
+                            {
+                                expect(params).toEqual(
+                                    {
+                                        TableName: LOCK_TABLE,
+                                        Item:
+                                        {
+                                            [PARTITION_KEY]: LOCK_ID,
+                                            fencingToken: 42,
+                                            leaseDurationMs: 1,
+                                            owner: OWNER,
+                                            guid
+                                        },
+                                        ConditionExpression: `attribute_exists(#partitionKey) and guid = :guid`,
+                                        ExpressionAttributeNames:
+                                        {
+                                            "#partitionKey": PARTITION_KEY
+                                        },
+                                        ExpressionAttributeValues:
+                                        {
+                                            ":guid": guid
+                                        }
+                                    }
+                                );
+                                finish();
+                                return callback(error);
+                            }
+                        }
+                    );
+                    expect(lock.heartbeatTimeout).not.toBe(undefined);
+                    lock.release(err =>
+                        {
+                            expect(err).toBe(error);
+                            expect(lock.heartbeatTimeout).toBe(undefined);
+                            finish();
+                        }
+                    );
+                }
+            );
+        });
+    });
+    describe("using partitionKey and sortKey", () =>
+    {
+        let guid, lock;
+        beforeEach(() =>
+            {
+                config.sortKey = SORT_KEY;
+                guid = crypto.randomBytes(64);
+                lock = new DynamoDBLockClient.Lock(
+                    {
+                        dynamodb,
+                        fencingToken: 42,
+                        guid,
+                        heartbeatPeriodMs: config.heartbeatPeriodMs,
+                        leaseDurationMs: config.leaseDurationMs,
+                        lockTable: config.lockTable,
+                        owner: config.owner,
+                        partitionID: LOCK_ID,
+                        partitionKey: config.partitionKey,
+                        sortID: SORT_ID,
+                        sortKey: config.sortKey,
+                        type: DynamoDBLockClient.FailOpen
+                    }
+                );
+            }
+        );
+        test("if non-ConditionalCheckFailedException error, invokes callback with error", done =>
+            {
+                const finish = countdown(done, 2);
+                const error = new Error("boom");
+                config.dynamodb = Object.assign(
+                    dynamodb,
+                    {
+                        put(params, callback)
+                        {
+                            expect(params).toEqual(
+                                {
+                                    TableName: LOCK_TABLE,
+                                    Item:
+                                    {
+                                        [PARTITION_KEY]: LOCK_ID,
+                                        [SORT_KEY]: SORT_ID,
+                                        fencingToken: 42,
+                                        leaseDurationMs: 1,
+                                        owner: OWNER,
+                                        guid
+                                    },
+                                    ConditionExpression: `(attribute_exists(#partitionKey) and attribute_exists(#sortKey)) and guid = :guid`,
+                                    ExpressionAttributeNames:
+                                    {
+                                        "#partitionKey": PARTITION_KEY,
+                                        "#sortKey": SORT_KEY
+                                    },
+                                    ExpressionAttributeValues:
+                                    {
+                                        ":guid": guid
+                                    }
+                                }
+                            );
+                            finish();
+                            return callback(error);
+                        }
+                    }
+                );
+                expect(lock.heartbeatTimeout).not.toBe(undefined);
+                lock.release(err =>
+                    {
+                        expect(err).toBe(error);
+                        expect(lock.heartbeatTimeout).toBe(undefined);
+                        finish();
+                    }
+                );
+            }
+        );
+    });
 });
