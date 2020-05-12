@@ -405,8 +405,11 @@ const Lock = function(config)
     self._config = config;
 
     // variable properties
-    self.guid = self._config.guid;
-    self.released = false;
+    self._guid = self._config.guid;
+    self._released = false;
+
+    // public properties
+    self.fencingToken = self._config.fencingToken;
 
     if (self._config.heartbeatPeriodMs)
     {
@@ -428,7 +431,7 @@ const Lock = function(config)
                 ExpressionAttributeNames: buildExpressionAttributeNames(self),
                 ExpressionAttributeValues:
                 {
-                    ":guid": self.guid
+                    ":guid": self._guid
                 }
             };
             if (self._config.trustLocalTime)
@@ -445,8 +448,8 @@ const Lock = function(config)
                     {
                         return self.emit("error", error);
                     }
-                    self.guid = newGuid;
-                    if (!self.released) // See https://github.com/tristanls/dynamodb-lock-client/issues/1
+                    self._guid = newGuid;
+                    if (!self._released) // See https://github.com/tristanls/dynamodb-lock-client/issues/1
                     {
                         self.heartbeatTimeout = setTimeout(refreshLock, self._config.heartbeatPeriodMs);
                     }
@@ -462,7 +465,7 @@ util.inherits(Lock, events.EventEmitter);
 Lock.prototype.release = function(callback)
 {
     const self = this;
-    self.released = true;
+    self._released = true;
     if (self.heartbeatTimeout)
     {
         clearTimeout(self.heartbeatTimeout);
@@ -492,7 +495,7 @@ Lock.prototype._releaseFailClosed = function(callback)
         ExpressionAttributeNames: buildExpressionAttributeNames(self),
         ExpressionAttributeValues:
         {
-            ":guid": self.guid
+            ":guid": self._guid
         }
     };
     if (self._config.sortKey)
@@ -525,13 +528,13 @@ Lock.prototype._releaseFailOpen = function(callback)
             fencingToken: self._config.fencingToken,
             leaseDurationMs: 1,
             owner: self._config.owner,
-            guid: self.guid
+            guid: self._guid
         },
         ConditionExpression: `${buildAttributeExistsExpression(self)} and guid = :guid`,
         ExpressionAttributeNames: buildExpressionAttributeNames(self),
         ExpressionAttributeValues:
         {
-            ":guid": self.guid
+            ":guid": self._guid
         }
     };
     if (self._config.trustLocalTime)

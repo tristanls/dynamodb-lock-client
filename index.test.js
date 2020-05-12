@@ -255,8 +255,9 @@ describe("FailOpen lock acquisition", () =>
                                                     partitionKey: PARTITION_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                guid: expect.any(Buffer),
-                                                released: false
+                                                _guid: expect.any(Buffer),
+                                                _released: false,
+                                                fencingToken: 1
                                             }
                                         )
                                     );
@@ -462,8 +463,9 @@ describe("FailOpen lock acquisition", () =>
                                                     partitionKey: PARTITION_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                guid: newGUID,
-                                                released: false
+                                                _guid: newGUID,
+                                                _released: false,
+                                                fencingToken: existingItem.fencingToken + 1
                                             }
                                         )
                                     );
@@ -730,8 +732,9 @@ describe("FailOpen lock acquisition", () =>
                                                     sortKey: SORT_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                guid: expect.any(Buffer),
-                                                released: false
+                                                _guid: expect.any(Buffer),
+                                                _released: false,
+                                                fencingToken: 1
                                             }
                                         )
                                     );
@@ -955,8 +958,9 @@ describe("FailOpen lock acquisition", () =>
                                                     sortKey: SORT_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                guid: newGUID,
-                                                released: false
+                                                _guid: newGUID,
+                                                _released: false,
+                                                fencingToken: existingItem.fencingToken + 1
                                             }
                                         )
                                     );
