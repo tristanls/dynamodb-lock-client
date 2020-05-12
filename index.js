@@ -49,7 +49,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
         {
             id,
             owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
-            retryCount: self._config.retryCount,
+            retryCount: self._retryCount,
             guid: crypto.randomBytes(64)
         }
     ));
@@ -58,7 +58,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
         {
             const params =
             {
-                TableName: self._lockTable,
+                TableName: self._config.lockTable,
                 Item:
                 {
                     owner: dataBag.owner,
@@ -67,7 +67,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
                 ConditionExpression: "attribute_not_exists(#partitionKey)",
                 ExpressionAttributeNames:
                 {
-                    "#partitionKey": self._partitionKey
+                    "#partitionKey": self._config.partitionKey
                 }
             };
             params.Item[self._partitionKey] = dataBag.id;
@@ -115,8 +115,8 @@ FailClosed.prototype.acquireLock = function(id, callback)
 
 function buildNegativeConditionExpression(self) {
     let expr = 'attribute_not_exists(#partitionKey)';
-    if (self._rangeKey) {
-        expr += ' and attribute_not_exists(#rangeKey)';
+    if (self._config.sortKey) {
+        expr += ' and attribute_not_exists(#sortKey)';
         return `(${expr})`;
     }
     return expr;
@@ -124,8 +124,8 @@ function buildNegativeConditionExpression(self) {
 
 function buildPositiveConditionExpression(self) {
     let expr = 'attribute_exists(#partitionKey)';
-    if (self._rangeKey) {
-        expr += ' and attribute_exists(#rangeKey)';
+    if (self._config.sortKey) {
+        expr += ' and attribute_exists(#sortKey)';
         return `(${expr})`;
     }
     return expr;
@@ -135,8 +135,8 @@ function buildExpressionAttributeNames(self) {
     const names = {
         "#partitionKey": self._partitionKey
     };
-    if (self._rangeKey) {
-        names["#rangeKey"] = self._rangeKey;
+    if (self._config.sortKey) {
+        names["#sortKey"] = self._sortKey;
     }
     return names;
 }
@@ -165,7 +165,7 @@ const FailOpen = function(config)
     self._dynamodb = self._config.dynamodb;
     self._lockTable = self._config.lockTable;
     self._partitionKey = self._config.partitionKey;
-    self._rangeKey = self._config.rangeKey;
+    self._sortKey = self._config.sortKey;
     self._heartbeatPeriodMs = self._config.heartbeatPeriodMs;
     self._leaseDurationMs = self._config.leaseDurationMs;
     self._trustLocalTime = self._config.trustLocalTime;
@@ -180,18 +180,21 @@ FailOpen.schema =
 FailOpen.prototype.acquireLock = function(id, callback)
 {
     const self = this;
-    let partitionKeyValue, rangeKeyValue;
-    if (Object.getPrototypeOf(id).constructor === Array) {
-        partitionKeyValue = id[0];
-        rangeKeyValue = id[1];
-    } else {
-        partitionKeyValue = id;
+    let partitionID, sortID;
+    if (Array.isArray(id))
+    {
+        partitionID = id[0];
+        sortID = id[1];
+    }
+    else
+    {
+        partitionID = id;
     }
     const workflow = new events.EventEmitter();
     setImmediate(() => workflow.emit("start",
         {
-            id: partitionKeyValue,
-            subId: rangeKeyValue,
+            id: partitionID,
+            sortID,
             owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
             retryCount: self._retryCount,
             guid: crypto.randomBytes(64)
@@ -202,15 +205,16 @@ FailOpen.prototype.acquireLock = function(id, callback)
         {
             const params =
             {
-                TableName: self._lockTable,
+                TableName: self._config.lockTable,
                 Key:
                 {
-                    [self._partitionKey]: dataBag.id
+                    [self._config.partitionKey]: dataBag.id
                 },
                 ConsistentRead: true
             };
-            if (dataBag.subId) {
-                params.Key[self._rangeKey] = dataBag.subId;
+            if (dataBag.sortID)
+            {
+                params.Key[self._config.sortKey] = dataBag.sortID;
             }
             self._dynamodb.get(params, (error, data) =>
                 {
@@ -249,12 +253,12 @@ FailOpen.prototype.acquireLock = function(id, callback)
         {
             const params =
             {
-                TableName: self._lockTable,
+                TableName: self._config.lockTable,
                 Item:
                 {
-                    [self._partitionKey]: dataBag.id,
+                    [self._config.partitionKey]: dataBag.id,
                     fencingToken: dataBag.fencingToken,
-                    leaseDurationMs: self._leaseDurationMs,
+                    leaseDurationMs: self._config.leaseDurationMs,
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
@@ -265,8 +269,9 @@ FailOpen.prototype.acquireLock = function(id, callback)
             {
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
-            if (dataBag.subId) {
-                params.Item[self._rangeKey] = dataBag.subId;
+            if (dataBag.sortID)
+            {
+                params.Item[self._config.sortKey] = dataBag.sortID;
             }
             self._dynamodb.put(params, (error, data) =>
                 {
@@ -298,11 +303,12 @@ FailOpen.prototype.acquireLock = function(id, callback)
         {
             const params =
             {
-                TableName: self._lockTable,
+                TableName: self._config.lockTable,
                 Item:
                 {
+                    [self._config.partitionKey]: dataBag.id,
                     fencingToken: dataBag.fencingToken,
-                    leaseDurationMs: self._leaseDurationMs,
+                    leaseDurationMs: self._config.leaseDurationMs,
                     owner: dataBag.owner,
                     guid: dataBag.guid
                 },
@@ -318,9 +324,9 @@ FailOpen.prototype.acquireLock = function(id, callback)
             {
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
-            params.Item[self._partitionKey] = dataBag.id;
-            if (dataBag.subId) {
-                params.Item[self._rangeKey] = dataBag.subId;
+            if (dataBag.sortID)
+            {
+                params.Item[self._config.sortKey] = dataBag.sortID;
             }
             self._dynamodb.put(params, (error, data) =>
                 {
@@ -352,18 +358,18 @@ FailOpen.prototype.acquireLock = function(id, callback)
         {
             return callback(undefined, new Lock(
                 {
-                    dynamodb: self._dynamodb,
+                    dynamodb: self._config.dynamodb,
                     fencingToken: dataBag.fencingToken,
                     guid: dataBag.guid,
-                    heartbeatPeriodMs: self._heartbeatPeriodMs,
+                    heartbeatPeriodMs: self._config.heartbeatPeriodMs,
                     id: dataBag.id,
-                    subId: dataBag.subId,
-                    leaseDurationMs: self._leaseDurationMs,
-                    lockTable: self._lockTable,
+                    leaseDurationMs: self._config.leaseDurationMs,
+                    lockTable: self._config.lockTable,
                     owner: dataBag.owner,
-                    partitionKey: self._partitionKey,
-                    rangeKey: self._rangeKey,
-                    trustLocalTime: self._trustLocalTime,
+                    partitionKey: self._config.partitionKey,
+                    sortID: dataBag.sortID,
+                    sortKey: self._config.sortKey,
+                    trustLocalTime: self._config.trustLocalTime,
                     type: FailOpen
                 }
             ));
