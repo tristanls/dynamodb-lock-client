@@ -1,6 +1,6 @@
 {
   "name": "dynamodb-lock-client",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "A general purpose distributed locking library built for AWS DynamoDB.",
   "scripts": {
     "inject-examples": "node scripts/injectExamples.js",
