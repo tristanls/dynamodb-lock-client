@@ -143,6 +143,61 @@ describe("FailOpen lock acquisition", () =>
                             );
                         }
                     );
+                    describe("trustLocalTime true, includes lockAcquiredTimeUnixMs parameter", () =>
+                    {
+                        beforeEach(() =>
+                            {
+                                config.trustLocalTime = true;
+                            }
+                        );
+                        test("if non-ConditionalCheckFailedException error, invokes callback with error", done =>
+                            {
+                                const finish = countdown(done, 2);
+                                const error = new Error("boom");
+                                config.dynamodb = Object.assign(
+                                    dynamodb,
+                                    {
+                                        put(params, callback)
+                                        {
+                                            expect(params).toEqual(
+                                                {
+                                                    TableName: LOCK_TABLE,
+                                                    Item:
+                                                    {
+                                                        [PARTITION_KEY]: LOCK_ID,
+                                                        fencingToken: 1,
+                                                        leaseDurationMs: LEASE_DURATION_MS,
+                                                        owner: OWNER,
+                                                        guid: expect.any(Buffer),
+                                                        lockAcquiredTimeUnixMs: expect.any(Number)
+                                                    },
+                                                    ConditionExpression: `attribute_not_exists(#partitionKey)`,
+                                                    ExpressionAttributeNames:
+                                                    {
+                                                        "#partitionKey": PARTITION_KEY
+                                                    }
+                                                }
+                                            );
+                                            finish();
+                                            return callback(error);
+                                        }
+                                    }
+                                );
+                                const failOpen = new DynamoDBLockClient.FailOpen(config);
+                                failOpen.acquireLock(
+                                    {
+                                        [PARTITION_KEY]: LOCK_ID
+                                    },
+                                    (err, lock) =>
+                                    {
+                                        expect(err).toBe(error);
+                                        expect(lock).toBe(undefined);
+                                        finish();
+                                    }
+                                );
+                            }
+                        );
+                    });
                     describe("if ConditionalCheckFailedException error", () =>
                     {
                         const error = new Error("boom");
@@ -346,6 +401,66 @@ describe("FailOpen lock acquisition", () =>
                             );
                         }
                     );
+                    describe("trustLocalTime true, includes lockAcquiredTimeUnixMs parameter", () =>
+                    {
+                        beforeEach(() =>
+                            {
+                                config.trustLocalTime = true;
+                            }
+                        );
+                        test("if non-ConditionalCheckFailedException error, invokes callback with error", done =>
+                            {
+                                const finish = countdown(done, 2);
+                                const error = new Error("boom");
+                                config.dynamodb = Object.assign(
+                                    dynamodb,
+                                    {
+                                        put(params, callback)
+                                        {
+                                            expect(params).toEqual(
+                                                {
+                                                    TableName: LOCK_TABLE,
+                                                    Item:
+                                                    {
+                                                        [PARTITION_KEY]: LOCK_ID,
+                                                        fencingToken: existingItem.fencingToken + 1,
+                                                        leaseDurationMs: LEASE_DURATION_MS,
+                                                        owner: OWNER,
+                                                        guid: expect.any(Buffer),
+                                                        lockAcquiredTimeUnixMs: expect.any(Number)
+                                                    },
+                                                    ConditionExpression: `attribute_not_exists(#partitionKey) or (guid = :guid and fencingToken = :fencingToken)`,
+                                                    ExpressionAttributeNames:
+                                                    {
+                                                        "#partitionKey": PARTITION_KEY
+                                                    },
+                                                    ExpressionAttributeValues:
+                                                    {
+                                                        ":fencingToken": existingItem.fencingToken,
+                                                        ":guid": existingItem.guid
+                                                    }
+                                                }
+                                            );
+                                            finish();
+                                            return callback(error);
+                                        }
+                                    }
+                                );
+                                const failOpen = new DynamoDBLockClient.FailOpen(config);
+                                failOpen.acquireLock(
+                                    {
+                                        [PARTITION_KEY]: LOCK_ID
+                                    },
+                                    (err, lock) =>
+                                    {
+                                        expect(err).toBe(error);
+                                        expect(lock).toBe(undefined);
+                                        finish();
+                                    }
+                                );
+                            }
+                        );
+                    });
                     describe("if ConditionalCheckFailedException error", () =>
                     {
                         const error = new Error("boom");
@@ -606,6 +721,64 @@ describe("FailOpen lock acquisition", () =>
                             );
                         }
                     );
+                    describe("trustLocalTime true, includes lockAcquiredTimeUnixMs parameter", () =>
+                    {
+                        beforeEach(() =>
+                            {
+                                config.trustLocalTime = true;
+                            }
+                        );
+                        test("if non-ConditionalCheckFailedException error, invokes callback with error", done =>
+                            {
+                                const finish = countdown(done, 2);
+                                const error = new Error("boom");
+                                config.dynamodb = Object.assign(
+                                    dynamodb,
+                                    {
+                                        put(params, callback)
+                                        {
+                                            expect(params).toEqual(
+                                                {
+                                                    TableName: LOCK_TABLE,
+                                                    Item:
+                                                    {
+                                                        [PARTITION_KEY]: LOCK_ID,
+                                                        [SORT_KEY]: SORT_ID,
+                                                        fencingToken: 1,
+                                                        leaseDurationMs: LEASE_DURATION_MS,
+                                                        owner: OWNER,
+                                                        guid: expect.any(Buffer),
+                                                        lockAcquiredTimeUnixMs: expect.any(Number)
+                                                    },
+                                                    ConditionExpression: `(attribute_not_exists(#partitionKey) and attribute_not_exists(#sortKey))`,
+                                                    ExpressionAttributeNames:
+                                                    {
+                                                        "#partitionKey": PARTITION_KEY,
+                                                        "#sortKey": SORT_KEY
+                                                    }
+                                                }
+                                            );
+                                            finish();
+                                            return callback(error);
+                                        }
+                                    }
+                                );
+                                const failOpen = new DynamoDBLockClient.FailOpen(config);
+                                failOpen.acquireLock(
+                                    {
+                                        [PARTITION_KEY]: LOCK_ID,
+                                        [SORT_KEY]: SORT_ID
+                                    },
+                                    (err, lock) =>
+                                    {
+                                        expect(err).toBe(error);
+                                        expect(lock).toBe(undefined);
+                                        finish();
+                                    }
+                                );
+                            }
+                        );
+                    });
                     describe("if ConditionalCheckFailedException error", () =>
                     {
                         const error = new Error("boom");
@@ -827,6 +1000,69 @@ describe("FailOpen lock acquisition", () =>
                             );
                         }
                     );
+                    describe("trustLocalTime true, includes lockAcquiredTimeUnixMs parameter", () =>
+                    {
+                        beforeEach(() =>
+                            {
+                                config.trustLocalTime = true;
+                            }
+                        );
+                        test("if non-ConditionalCheckFailedException error, invokes callback with error", done =>
+                            {
+                                const finish = countdown(done, 2);
+                                const error = new Error("boom");
+                                config.dynamodb = Object.assign(
+                                    dynamodb,
+                                    {
+                                        put(params, callback)
+                                        {
+                                            expect(params).toEqual(
+                                                {
+                                                    TableName: LOCK_TABLE,
+                                                    Item:
+                                                    {
+                                                        [PARTITION_KEY]: LOCK_ID,
+                                                        [SORT_KEY]: SORT_ID,
+                                                        fencingToken: existingItem.fencingToken + 1,
+                                                        leaseDurationMs: LEASE_DURATION_MS,
+                                                        owner: OWNER,
+                                                        guid: expect.any(Buffer),
+                                                        lockAcquiredTimeUnixMs: expect.any(Number)
+                                                    },
+                                                    ConditionExpression: `(attribute_not_exists(#partitionKey) and attribute_not_exists(#sortKey)) or (guid = :guid and fencingToken = :fencingToken)`,
+                                                    ExpressionAttributeNames:
+                                                    {
+                                                        "#partitionKey": PARTITION_KEY,
+                                                        "#sortKey": SORT_KEY
+                                                    },
+                                                    ExpressionAttributeValues:
+                                                    {
+                                                        ":fencingToken": existingItem.fencingToken,
+                                                        ":guid": existingItem.guid
+                                                    }
+                                                }
+                                            );
+                                            finish();
+                                            return callback(error);
+                                        }
+                                    }
+                                );
+                                const failOpen = new DynamoDBLockClient.FailOpen(config);
+                                failOpen.acquireLock(
+                                    {
+                                        [PARTITION_KEY]: LOCK_ID,
+                                        [SORT_KEY]: SORT_ID
+                                    },
+                                    (err, lock) =>
+                                    {
+                                        expect(err).toBe(error);
+                                        expect(lock).toBe(undefined);
+                                        finish();
+                                    }
+                                );
+                            }
+                        );
+                    });
                     describe("if ConditionalCheckFailedException error", () =>
                     {
                         const error = new Error("boom");

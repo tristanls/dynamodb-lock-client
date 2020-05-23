@@ -250,7 +250,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     dataBag.fencingToken = dataBag.lock.fencingToken + 1;
                     const leaseDurationMs = parseInt(dataBag.lock.leaseDurationMs);
                     let timeout;
-                    if (self._trustLocalTime)
+                    if (self._config.trustLocalTime)
                     {
                         const lockAcquiredTimeUnixMs = parseInt(dataBag.lock.lockAcquiredTimeUnixMs);
                         const localTimeUnixMs = (new Date()).getTime();
@@ -284,7 +284,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 ConditionExpression: buildAttributeNotExistsExpression(self),
                 ExpressionAttributeNames: buildExpressionAttributeNames(self)
             };
-            if (self._trustLocalTime)
+            if (self._config.trustLocalTime)
             {
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
@@ -339,7 +339,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     ":guid": dataBag.lock.guid
                 }
             };
-            if (self._trustLocalTime)
+            if (self._config.trustLocalTime)
             {
                 params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
             }
