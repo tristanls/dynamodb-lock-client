@@ -135,7 +135,7 @@ Outputs:
     Value: !GetAtt DistributedLocksStore.Arn
 ```
 
-The template above would make your `config.partitionKey == "id"` and your `config.lockTable == "distributed-lock-store"`.
+The template above would make your `config.partitionKey == "id"` and your `config.lockTable == "distributed-locks-store"`.
 
 You can choose to call your `config.partitionKey` any valid string except `fencingToken`, `leaseDurationMs`, `lockAcquiredTimeUnixMs`, `owner`, or `guid` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table.
 
@@ -170,7 +170,7 @@ Outputs:
     Value: !GetAtt DistributedLocksStore.Arn
 ```
 
-The template above would make your `config.partitionKey == "id"`, `config.sortKey = "sortID"`, and your `config.lockTable == "distributed-lock-store"`.
+The template above would make your `config.partitionKey == "id"`, `config.sortKey = "sortID"`, and your `config.lockTable == "distributed-locks-store"`.
 
 You can choose to call your `config.partitionKey` and `config.sortKey` any valid string except `fencingToken`, `leaseDurationMs`, `lockAcquiredTimeUnixMs`, `owner`, or `guid` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table. Your `config.sortKey` has to correspond to the sort key (`RANGE`) of the Primary Key of your DynamoDB table.
 
