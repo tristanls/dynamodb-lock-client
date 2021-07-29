@@ -1,6 +1,6 @@
 "use strict";
 
-const clone = require("clone");
+//const clone = require("clone");
 const countdown = require("./test/countdown.js");
 const crypto = require("crypto");
 const DynamoDBLockClient = require("./index.js");
@@ -39,9 +39,9 @@ describe("FailOpen lock acquisition", () =>
             };
             dynamodb =
             {
-                delete: () => {},
-                get: () => {},
-                put: () => {}
+                deleteItem: () => {},
+                getItem: () => {},
+                putItem: () => {}
             }
         }
     );
@@ -56,14 +56,14 @@ describe("FailOpen lock acquisition", () =>
                     config.dynamodb = Object.assign(
                         dynamodb,
                         {
-                            get(params, callback)
+                            getItem(params, callback)
                             {
                                 expect(params).toEqual(
                                     {
                                         TableName: LOCK_TABLE,
                                         Key:
                                         {
-                                            [PARTITION_KEY]: LOCK_ID
+                                            [PARTITION_KEY]: { S: LOCK_ID }
                                         },
                                         ConsistentRead: true
                                     }
@@ -90,7 +90,7 @@ describe("FailOpen lock acquisition", () =>
                         dynamodb = Object.assign(
                             dynamodb,
                             {
-                                get: (_, callback) => callback(undefined, {})
+                                getItem: (_, callback) => callback(undefined, {})
                             }
                         );
                     }
@@ -104,18 +104,18 @@ describe("FailOpen lock acquisition", () =>
                             config.dynamodb = Object.assign(
                                 dynamodb,
                                 {
-                                    put(params, callback)
+                                    putItem(params, callback)
                                     {
                                         expect(params).toEqual(
                                             {
                                                 TableName: LOCK_TABLE,
                                                 Item:
                                                 {
-                                                    [PARTITION_KEY]: LOCK_ID,
-                                                    fencingToken: 1,
-                                                    leaseDurationMs: LEASE_DURATION_MS,
-                                                    owner: OWNER,
-                                                    guid: expect.any(Buffer)
+                                                    [PARTITION_KEY]: { S: LOCK_ID },
+                                                    fencingToken: { N: "1" },
+                                                    leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                                                    owner: { S: OWNER },
+                                                    guid: { S: expect.any(String) }
                                                 },
                                                 ConditionExpression: `attribute_not_exists(#partitionKey)`,
                                                 ExpressionAttributeNames:
@@ -157,19 +157,19 @@ describe("FailOpen lock acquisition", () =>
                                 config.dynamodb = Object.assign(
                                     dynamodb,
                                     {
-                                        put(params, callback)
+                                        putItem(params, callback)
                                         {
                                             expect(params).toEqual(
                                                 {
                                                     TableName: LOCK_TABLE,
                                                     Item:
                                                     {
-                                                        [PARTITION_KEY]: LOCK_ID,
-                                                        fencingToken: 1,
-                                                        leaseDurationMs: LEASE_DURATION_MS,
-                                                        owner: OWNER,
-                                                        guid: expect.any(Buffer),
-                                                        lockAcquiredTimeUnixMs: expect.any(Number)
+                                                        [PARTITION_KEY]: { S: LOCK_ID },
+                                                        fencingToken: { N: "1" },
+                                                        leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                                                        owner: { S: OWNER },
+                                                        guid: { S: expect.any(String) },
+                                                        lockAcquiredTimeUnixMs: { N: expect.any(String) }
                                                     },
                                                     ConditionExpression: `attribute_not_exists(#partitionKey)`,
                                                     ExpressionAttributeNames:
@@ -207,7 +207,7 @@ describe("FailOpen lock acquisition", () =>
                                 dynamodb = Object.assign(
                                     dynamodb,
                                     {
-                                        put: (_, callback) => callback(error)
+                                        putItem: (_, callback) => callback(error)
                                     }
                                 );
                             }
@@ -222,7 +222,7 @@ describe("FailOpen lock acquisition", () =>
                                     config.dynamodb = Object.assign(
                                         dynamodb,
                                         {
-                                            get(params, callback)
+                                            getItem(params, callback)
                                             {
                                                 if (++callCount == 1)
                                                 {
@@ -234,7 +234,7 @@ describe("FailOpen lock acquisition", () =>
                                                         TableName: LOCK_TABLE,
                                                         Key:
                                                         {
-                                                            [PARTITION_KEY]: LOCK_ID
+                                                            [PARTITION_KEY]: { S: LOCK_ID }
                                                         },
                                                         ConsistentRead: true
                                                     }
@@ -287,7 +287,7 @@ describe("FailOpen lock acquisition", () =>
                             config.dynamodb = Object.assign(
                                 dynamodb,
                                 {
-                                    put: (_, callback) => callback()
+                                    putItem: (_, callback) => callback()
                                 }
                             );
                             const failOpen = new DynamoDBLockClient.FailOpen(config);
@@ -301,7 +301,7 @@ describe("FailOpen lock acquisition", () =>
                                                 {
                                                     dynamodb: config.dynamodb,
                                                     fencingToken: 1,
-                                                    guid: expect.any(Buffer),
+                                                    guid: expect.any(String),
                                                     heartbeatPeriodMs: HEARTBEAT_PERIOD_MS,
                                                     leaseDurationMs: LEASE_DURATION_MS,
                                                     lockTable: LOCK_TABLE,
@@ -310,7 +310,7 @@ describe("FailOpen lock acquisition", () =>
                                                     partitionKey: PARTITION_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                _guid: expect.any(Buffer),
+                                                _guid: expect.any(String),
                                                 _released: false,
                                                 fencingToken: 1
                                             }
@@ -327,18 +327,18 @@ describe("FailOpen lock acquisition", () =>
             {
                 const existingItem =
                 {
-                    [PARTITION_KEY]: LOCK_ID,
-                    fencingToken: 42,
-                    leaseDurationMs: LEASE_DURATION_MS,
-                    owner: `not-${OWNER}`,
-                    guid: crypto.randomBytes(64)
+                    [PARTITION_KEY]: { S: LOCK_ID },
+                    fencingToken: { N: "42" },
+                    leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                    owner: { S: `not-${OWNER}` },
+                    guid: { S: crypto.randomBytes(64).toString("base64") }
                 };
                 beforeEach(() =>
                     {
                         dynamodb = Object.assign(
                             dynamodb,
                             {
-                                get: (_, callback) => callback(undefined,
+                                getItem: (_, callback) => callback(undefined,
                                     {
                                         Item: existingItem
                                     }
@@ -356,18 +356,18 @@ describe("FailOpen lock acquisition", () =>
                             config.dynamodb = Object.assign(
                                 dynamodb,
                                 {
-                                    put(params, callback)
+                                    putItem(params, callback)
                                     {
                                         expect(params).toEqual(
                                             {
                                                 TableName: LOCK_TABLE,
                                                 Item:
                                                 {
-                                                    [PARTITION_KEY]: LOCK_ID,
-                                                    fencingToken: existingItem.fencingToken + 1,
-                                                    leaseDurationMs: LEASE_DURATION_MS,
-                                                    owner: OWNER,
-                                                    guid: expect.any(Buffer)
+                                                    [PARTITION_KEY]: { S: LOCK_ID },
+                                                    fencingToken: { N: (parseInt(existingItem.fencingToken.N) + 1).toString() },
+                                                    leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                                                    owner: { S: OWNER },
+                                                    guid: { S: expect.any(String) }
                                                 },
                                                 ConditionExpression: `attribute_not_exists(#partitionKey) or (guid = :guid and fencingToken = :fencingToken)`,
                                                 ExpressionAttributeNames:
@@ -381,7 +381,7 @@ describe("FailOpen lock acquisition", () =>
                                                 }
                                             }
                                         );
-                                        expect(params.Item.guid).not.toEqual(existingItem.guid);
+                                        expect(params.Item.guid).not.toEqual(existingItem.guid.S);
                                         finish();
                                         return callback(error);
                                     }
@@ -415,19 +415,19 @@ describe("FailOpen lock acquisition", () =>
                                 config.dynamodb = Object.assign(
                                     dynamodb,
                                     {
-                                        put(params, callback)
+                                        putItem(params, callback)
                                         {
                                             expect(params).toEqual(
                                                 {
                                                     TableName: LOCK_TABLE,
                                                     Item:
                                                     {
-                                                        [PARTITION_KEY]: LOCK_ID,
-                                                        fencingToken: existingItem.fencingToken + 1,
-                                                        leaseDurationMs: LEASE_DURATION_MS,
-                                                        owner: OWNER,
-                                                        guid: expect.any(Buffer),
-                                                        lockAcquiredTimeUnixMs: expect.any(Number)
+                                                        [PARTITION_KEY]: { S: LOCK_ID },
+                                                        fencingToken: { N: (parseInt(existingItem.fencingToken.N) + 1).toString() },
+                                                        leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                                                        owner: { S: OWNER },
+                                                        guid: { S: expect.any(String) },
+                                                        lockAcquiredTimeUnixMs: { N: expect.any(String) }
                                                     },
                                                     ConditionExpression: `attribute_not_exists(#partitionKey) or (guid = :guid and fencingToken = :fencingToken)`,
                                                     ExpressionAttributeNames:
@@ -470,7 +470,7 @@ describe("FailOpen lock acquisition", () =>
                                 dynamodb = Object.assign(
                                     dynamodb,
                                     {
-                                        put: (_, callback) => callback(error)
+                                        putItem: (_, callback) => callback(error)
                                     }
                                 );
                             }
@@ -485,7 +485,7 @@ describe("FailOpen lock acquisition", () =>
                                     config.dynamodb = Object.assign(
                                         dynamodb,
                                         {
-                                            get(params, callback)
+                                            getItem(params, callback)
                                             {
                                                 if (++callCount == 1)
                                                 {
@@ -497,7 +497,7 @@ describe("FailOpen lock acquisition", () =>
                                                         TableName: LOCK_TABLE,
                                                         Key:
                                                         {
-                                                            [PARTITION_KEY]: LOCK_ID
+                                                            [PARTITION_KEY]: { S: LOCK_ID }
                                                         },
                                                         ConsistentRead: true
                                                     }
@@ -551,9 +551,9 @@ describe("FailOpen lock acquisition", () =>
                             config.dynamodb = Object.assign(
                                 dynamodb,
                                 {
-                                    put(params, callback)
+                                    putItem(params, callback)
                                     {
-                                        newGUID = params.Item.guid;
+                                        newGUID = params.Item.guid.S;
                                         return callback();
                                     }
                                 }
@@ -568,7 +568,7 @@ describe("FailOpen lock acquisition", () =>
                                                 _config:
                                                 {
                                                     dynamodb: config.dynamodb,
-                                                    fencingToken: existingItem.fencingToken + 1,
+                                                    fencingToken: parseInt(existingItem.fencingToken.N) + 1,
                                                     guid: newGUID,
                                                     heartbeatPeriodMs: HEARTBEAT_PERIOD_MS,
                                                     leaseDurationMs: LEASE_DURATION_MS,
@@ -580,7 +580,7 @@ describe("FailOpen lock acquisition", () =>
                                                 },
                                                 _guid: newGUID,
                                                 _released: false,
-                                                fencingToken: existingItem.fencingToken + 1
+                                                fencingToken: parseInt(existingItem.fencingToken.N) + 1
                                             }
                                         )
                                     );
@@ -625,15 +625,15 @@ describe("FailOpen lock acquisition", () =>
                     config.dynamodb = Object.assign(
                         dynamodb,
                         {
-                            get(params, callback)
+                            getItem(params, callback)
                             {
                                 expect(params).toEqual(
                                     {
                                         TableName: LOCK_TABLE,
                                         Key:
                                         {
-                                            [PARTITION_KEY]: LOCK_ID,
-                                            [SORT_KEY]: SORT_ID
+                                            [PARTITION_KEY]: { S: LOCK_ID },
+                                            [SORT_KEY]: { S: SORT_ID }
                                         },
                                         ConsistentRead: true
                                     }
@@ -665,7 +665,7 @@ describe("FailOpen lock acquisition", () =>
                         dynamodb = Object.assign(
                             dynamodb,
                             {
-                                get: (_, callback) => callback(undefined, {})
+                                getItem: (_, callback) => callback(undefined, {})
                             }
                         );
                     }
@@ -679,19 +679,19 @@ describe("FailOpen lock acquisition", () =>
                             config.dynamodb = Object.assign(
                                 dynamodb,
                                 {
-                                    put(params, callback)
+                                    putItem(params, callback)
                                     {
                                         expect(params).toEqual(
                                             {
                                                 TableName: LOCK_TABLE,
                                                 Item:
                                                 {
-                                                    [PARTITION_KEY]: LOCK_ID,
-                                                    [SORT_KEY]: SORT_ID,
-                                                    fencingToken: 1,
-                                                    leaseDurationMs: LEASE_DURATION_MS,
-                                                    owner: OWNER,
-                                                    guid: expect.any(Buffer)
+                                                    [PARTITION_KEY]: { S: LOCK_ID },
+                                                    [SORT_KEY]: { S: SORT_ID },
+                                                    fencingToken: { N: "1" },
+                                                    leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                                                    owner: { S: OWNER },
+                                                    guid: { S: expect.any(String) }
                                                 },
                                                 ConditionExpression: `(attribute_not_exists(#partitionKey) and attribute_not_exists(#sortKey))`,
                                                 ExpressionAttributeNames:
@@ -735,20 +735,20 @@ describe("FailOpen lock acquisition", () =>
                                 config.dynamodb = Object.assign(
                                     dynamodb,
                                     {
-                                        put(params, callback)
+                                        putItem(params, callback)
                                         {
                                             expect(params).toEqual(
                                                 {
                                                     TableName: LOCK_TABLE,
                                                     Item:
                                                     {
-                                                        [PARTITION_KEY]: LOCK_ID,
-                                                        [SORT_KEY]: SORT_ID,
-                                                        fencingToken: 1,
-                                                        leaseDurationMs: LEASE_DURATION_MS,
-                                                        owner: OWNER,
-                                                        guid: expect.any(Buffer),
-                                                        lockAcquiredTimeUnixMs: expect.any(Number)
+                                                        [PARTITION_KEY]: { S: LOCK_ID },
+                                                        [SORT_KEY]: { S: SORT_ID },
+                                                        fencingToken: { N: "1" },
+                                                        leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                                                        owner: { S: OWNER },
+                                                        guid: { S: expect.any(String) },
+                                                        lockAcquiredTimeUnixMs: { N: expect.any(String) }
                                                     },
                                                     ConditionExpression: `(attribute_not_exists(#partitionKey) and attribute_not_exists(#sortKey))`,
                                                     ExpressionAttributeNames:
@@ -788,7 +788,7 @@ describe("FailOpen lock acquisition", () =>
                                 dynamodb = Object.assign(
                                     dynamodb,
                                     {
-                                        put: (_, callback) => callback(error)
+                                        putItem: (_, callback) => callback(error)
                                     }
                                 );
                             }
@@ -803,7 +803,7 @@ describe("FailOpen lock acquisition", () =>
                                     config.dynamodb = Object.assign(
                                         dynamodb,
                                         {
-                                            get(params, callback)
+                                            getItem(params, callback)
                                             {
                                                 if (++callCount == 1)
                                                 {
@@ -815,8 +815,8 @@ describe("FailOpen lock acquisition", () =>
                                                         TableName: LOCK_TABLE,
                                                         Key:
                                                         {
-                                                            [PARTITION_KEY]: LOCK_ID,
-                                                            [SORT_KEY]: SORT_ID
+                                                            [PARTITION_KEY]: { S: LOCK_ID },
+                                                            [SORT_KEY]: { S: SORT_ID }
                                                         },
                                                         ConsistentRead: true
                                                     }
@@ -875,7 +875,7 @@ describe("FailOpen lock acquisition", () =>
                             config.dynamodb = Object.assign(
                                 dynamodb,
                                 {
-                                    put: (_, callback) => callback()
+                                    putItem: (_, callback) => callback()
                                 }
                             );
                             const failOpen = new DynamoDBLockClient.FailOpen(config);
@@ -894,7 +894,7 @@ describe("FailOpen lock acquisition", () =>
                                                 {
                                                     dynamodb: config.dynamodb,
                                                     fencingToken: 1,
-                                                    guid: expect.any(Buffer),
+                                                    guid: expect.any(String),
                                                     heartbeatPeriodMs: HEARTBEAT_PERIOD_MS,
                                                     leaseDurationMs: LEASE_DURATION_MS,
                                                     lockTable: LOCK_TABLE,
@@ -905,7 +905,7 @@ describe("FailOpen lock acquisition", () =>
                                                     sortKey: SORT_KEY,
                                                     type: DynamoDBLockClient.FailOpen
                                                 },
-                                                _guid: expect.any(Buffer),
+                                                _guid: expect.any(String),
                                                 _released: false,
                                                 fencingToken: 1
                                             }
@@ -922,19 +922,19 @@ describe("FailOpen lock acquisition", () =>
             {
                 const existingItem =
                 {
-                    [PARTITION_KEY]: LOCK_ID,
-                    [SORT_KEY]: SORT_ID,
-                    fencingToken: 42,
-                    leaseDurationMs: LEASE_DURATION_MS,
-                    owner: `not-${OWNER}`,
-                    guid: crypto.randomBytes(64)
+                    [PARTITION_KEY]: { S: LOCK_ID },
+                    [SORT_KEY]: { S: SORT_ID },
+                    fencingToken: { N: "42" },
+                    leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                    owner: { S: `not-${OWNER}` },
+                    guid: { S: crypto.randomBytes(64).toString("base64") }
                 };
                 beforeEach(() =>
                     {
                         dynamodb = Object.assign(
                             dynamodb,
                             {
-                                get: (_, callback) => callback(undefined,
+                                getItem: (_, callback) => callback(undefined,
                                     {
                                         Item: existingItem
                                     }
@@ -952,19 +952,19 @@ describe("FailOpen lock acquisition", () =>
                             config.dynamodb = Object.assign(
                                 dynamodb,
                                 {
-                                    put(params, callback)
+                                    putItem(params, callback)
                                     {
                                         expect(params).toEqual(
                                             {
                                                 TableName: LOCK_TABLE,
                                                 Item:
                                                 {
-                                                    [PARTITION_KEY]: LOCK_ID,
-                                                    [SORT_KEY]: SORT_ID,
-                                                    fencingToken: existingItem.fencingToken + 1,
-                                                    leaseDurationMs: LEASE_DURATION_MS,
-                                                    owner: OWNER,
-                                                    guid: expect.any(Buffer)
+                                                    [PARTITION_KEY]: { S: LOCK_ID },
+                                                    [SORT_KEY]: { S: SORT_ID },
+                                                    fencingToken: { N: (parseInt(existingItem.fencingToken.N) + 1).toString() },
+                                                    leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                                                    owner: { S: OWNER },
+                                                    guid: { S: expect.any(String) }
                                                 },
                                                 ConditionExpression: `(attribute_not_exists(#partitionKey) and attribute_not_exists(#sortKey)) or (guid = :guid and fencingToken = :fencingToken)`,
                                                 ExpressionAttributeNames:
@@ -1014,20 +1014,20 @@ describe("FailOpen lock acquisition", () =>
                                 config.dynamodb = Object.assign(
                                     dynamodb,
                                     {
-                                        put(params, callback)
+                                        putItem(params, callback)
                                         {
                                             expect(params).toEqual(
                                                 {
                                                     TableName: LOCK_TABLE,
                                                     Item:
                                                     {
-                                                        [PARTITION_KEY]: LOCK_ID,
-                                                        [SORT_KEY]: SORT_ID,
-                                                        fencingToken: existingItem.fencingToken + 1,
-                                                        leaseDurationMs: LEASE_DURATION_MS,
-                                                        owner: OWNER,
-                                                        guid: expect.any(Buffer),
-                                                        lockAcquiredTimeUnixMs: expect.any(Number)
+                                                        [PARTITION_KEY]: { S: LOCK_ID },
+                                                        [SORT_KEY]: { S: SORT_ID },
+                                                        fencingToken: { N: (parseInt(existingItem.fencingToken.N) + 1).toString() },
+                                                        leaseDurationMs: { N: LEASE_DURATION_MS.toString() },
+                                                        owner: { S: OWNER },
+                                                        guid: { S: expect.any(String) },
+                                                        lockAcquiredTimeUnixMs: { N: expect.any(String) }
                                                     },
                                                     ConditionExpression: `(attribute_not_exists(#partitionKey) and attribute_not_exists(#sortKey)) or (guid = :guid and fencingToken = :fencingToken)`,
                                                     ExpressionAttributeNames:
@@ -1072,7 +1072,7 @@ describe("FailOpen lock acquisition", () =>
                                 dynamodb = Object.assign(
                                     dynamodb,
                                     {
-                                        put: (_, callback) => callback(error)
+                                        putItem: (_, callback) => callback(error)
                                     }
                                 );
                             }
@@ -1087,7 +1087,7 @@ describe("FailOpen lock acquisition", () =>
                                     config.dynamodb = Object.assign(
                                         dynamodb,
                                         {
-                                            get(params, callback)
+                                            getItem(params, callback)
                                             {
                                                 if (++callCount == 1)
                                                 {
@@ -1099,8 +1099,8 @@ describe("FailOpen lock acquisition", () =>
                                                         TableName: LOCK_TABLE,
                                                         Key:
                                                         {
-                                                            [PARTITION_KEY]: LOCK_ID,
-                                                            [SORT_KEY]: SORT_ID
+                                                            [PARTITION_KEY]: { S: LOCK_ID },
+                                                            [SORT_KEY]: { S: SORT_ID }
                                                         },
                                                         ConsistentRead: true
                                                     }
@@ -1160,9 +1160,9 @@ describe("FailOpen lock acquisition", () =>
                             config.dynamodb = Object.assign(
                                 dynamodb,
                                 {
-                                    put(params, callback)
+                                    putItem(params, callback)
                                     {
-                                        newGUID = params.Item.guid;
+                                        newGUID = params.Item.guid.S;
                                         return callback();
                                     }
                                 }
@@ -1182,7 +1182,7 @@ describe("FailOpen lock acquisition", () =>
                                                 _config:
                                                 {
                                                     dynamodb: config.dynamodb,
-                                                    fencingToken: existingItem.fencingToken + 1,
+                                                    fencingToken: parseInt(existingItem.fencingToken.N) + 1,
                                                     guid: newGUID,
                                                     heartbeatPeriodMs: HEARTBEAT_PERIOD_MS,
                                                     leaseDurationMs: LEASE_DURATION_MS,
@@ -1196,7 +1196,7 @@ describe("FailOpen lock acquisition", () =>
                                                 },
                                                 _guid: newGUID,
                                                 _released: false,
-                                                fencingToken: existingItem.fencingToken + 1
+                                                fencingToken: parseInt(existingItem.fencingToken.N) + 1
                                             }
                                         )
                                     );
@@ -1226,9 +1226,9 @@ describe("FailOpen lock release", () =>
             };
             dynamodb =
             {
-                delete: () => {},
-                get: () => {},
-                put: () => {}
+                deleteItem: () => {},
+                getItem: () => {},
+                putItem: () => {}
             }
         }
     );
@@ -1237,7 +1237,7 @@ describe("FailOpen lock release", () =>
         let guid, lock;
         beforeEach(() =>
             {
-                guid = crypto.randomBytes(64);
+                guid = crypto.randomBytes(64).toString("base64");
                 lock = new DynamoDBLockClient.Lock(
                     {
                         dynamodb,
@@ -1263,18 +1263,18 @@ describe("FailOpen lock release", () =>
                     config.dynamodb = Object.assign(
                         dynamodb,
                         {
-                            put(params, callback)
+                            putItem(params, callback)
                             {
                                 expect(params).toEqual(
                                     {
                                         TableName: LOCK_TABLE,
                                         Item:
                                         {
-                                            [PARTITION_KEY]: LOCK_ID,
-                                            fencingToken: 42,
-                                            leaseDurationMs: 1,
-                                            owner: OWNER,
-                                            guid
+                                            [PARTITION_KEY]: { S: LOCK_ID },
+                                            fencingToken: { N: "42" },
+                                            leaseDurationMs: { N: "1" },
+                                            owner: { S: OWNER },
+                                            guid: { S: guid }
                                         },
                                         ConditionExpression: `attribute_exists(#partitionKey) and guid = :guid`,
                                         ExpressionAttributeNames:
@@ -1283,7 +1283,7 @@ describe("FailOpen lock release", () =>
                                         },
                                         ExpressionAttributeValues:
                                         {
-                                            ":guid": guid
+                                            ":guid": { S: guid }
                                         }
                                     }
                                 );
@@ -1310,7 +1310,7 @@ describe("FailOpen lock release", () =>
         beforeEach(() =>
             {
                 config.sortKey = SORT_KEY;
-                guid = crypto.randomBytes(64);
+                guid = crypto.randomBytes(64).toString("base64");
                 lock = new DynamoDBLockClient.Lock(
                     {
                         dynamodb,
@@ -1336,19 +1336,19 @@ describe("FailOpen lock release", () =>
                 config.dynamodb = Object.assign(
                     dynamodb,
                     {
-                        put(params, callback)
+                        putItem(params, callback)
                         {
                             expect(params).toEqual(
                                 {
                                     TableName: LOCK_TABLE,
                                     Item:
                                     {
-                                        [PARTITION_KEY]: LOCK_ID,
-                                        [SORT_KEY]: SORT_ID,
-                                        fencingToken: 42,
-                                        leaseDurationMs: 1,
-                                        owner: OWNER,
-                                        guid
+                                        [PARTITION_KEY]: { S: LOCK_ID },
+                                        [SORT_KEY]: { S: SORT_ID },
+                                        fencingToken: { N: "42" },
+                                        leaseDurationMs: { N: "1" },
+                                        owner: { S: OWNER },
+                                        guid: { S: guid }
                                     },
                                     ConditionExpression: `(attribute_exists(#partitionKey) and attribute_exists(#sortKey)) and guid = :guid`,
                                     ExpressionAttributeNames:
@@ -1358,7 +1358,7 @@ describe("FailOpen lock release", () =>
                                     },
                                     ExpressionAttributeValues:
                                     {
-                                        ":guid": guid
+                                        ":guid": { S: guid }
                                     }
                                 }
                             );
