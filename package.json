@@ -9,6 +9,7 @@
     "test": "jest"
   },
   "main": "index.js",
+  "types": "types/index.d.ts",
   "devDependencies": {
     "clone": "^2.1.2",
     "jest": "26.0.1"
