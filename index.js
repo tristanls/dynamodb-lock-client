@@ -55,7 +55,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
         return callback(new Error("Lock ID is missing required sortKey value"));
     }
     const workflow = new events.EventEmitter();
-    setImmediate(() => workflow.emit("start",
+    setTimeout(() => workflow.emit("start",
         {
             partitionID,
             sortID,
@@ -63,7 +63,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
             retryCount: self._retryCount,
             guid: crypto.randomBytes(64)
         }
-    ));
+    ), 0);
     workflow.on("start", dataBag => workflow.emit("acquire lock", dataBag));
     workflow.on("acquire lock", dataBag =>
         {
@@ -210,7 +210,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
         return callback(new Error("Lock ID is missing required sortKey value"));
     }
     const workflow = new events.EventEmitter();
-    setImmediate(() => workflow.emit("start",
+    setTimeout(() => workflow.emit("start",
         {
             partitionID,
             sortID,
@@ -218,7 +218,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
             retryCount: self._retryCount,
             guid: crypto.randomBytes(64)
         }
-    ));
+    ), 0);
     workflow.on("start", dataBag => workflow.emit("check for existing lock", dataBag));
     workflow.on("check for existing lock", dataBag =>
         {
