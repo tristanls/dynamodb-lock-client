@@ -55,15 +55,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
         return callback(new Error("Lock ID is missing required sortKey value"));
     }
     const workflow = new events.EventEmitter();
-    setTimeout(() => workflow.emit("start",
-        {
-            partitionID,
-            sortID,
-            owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
-            retryCount: self._retryCount,
-            guid: crypto.randomBytes(64)
-        }
-    ), 0);
+    // Register workflow event handlers
     workflow.on("start", dataBag => workflow.emit("acquire lock", dataBag));
     workflow.on("acquire lock", dataBag =>
         {
@@ -125,6 +117,16 @@ FailClosed.prototype.acquireLock = function(id, callback)
             setTimeout(() => workflow.emit("acquire lock", dataBag), self._config.acquirePeriodMs);
         }
     );
+    // Start the workflow
+    workflow.emit("start",
+        {
+            partitionID,
+            sortID,
+            owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
+            retryCount: self._retryCount,
+            guid: crypto.randomBytes(64)
+        }
+    )
 };
 
 function buildAttributeExistsExpression(self)
@@ -210,15 +212,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
         return callback(new Error("Lock ID is missing required sortKey value"));
     }
     const workflow = new events.EventEmitter();
-    setTimeout(() => workflow.emit("start",
-        {
-            partitionID,
-            sortID,
-            owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
-            retryCount: self._retryCount,
-            guid: crypto.randomBytes(64)
-        }
-    ), 0);
+    // Register workflow event handlers
     workflow.on("start", dataBag => workflow.emit("check for existing lock", dataBag));
     workflow.on("check for existing lock", dataBag =>
         {
@@ -394,6 +388,16 @@ FailOpen.prototype.acquireLock = function(id, callback)
             ));
         }
     );
+    // Start the workflow
+    workflow.emit("start",
+        {
+            partitionID,
+            sortID,
+            owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
+            retryCount: self._retryCount,
+            guid: crypto.randomBytes(64)
+        }
+    )
 };
 
 const Lock = function(config)
