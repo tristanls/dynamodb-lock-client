@@ -14,6 +14,7 @@ const schema = Joi.object().keys(
         ).unknown().required(),
         lockTable: Joi.string().required(),
         partitionKey: Joi.string().invalid("owner", "guid").required(),
+        sortKey: Joi.string().invalid("owner", "guid").required(),
         acquirePeriodMs: Joi.number().integer().min(0).required(),
         retryCount: Joi.number().integer().min(0)
     }
