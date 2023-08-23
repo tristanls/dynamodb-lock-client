@@ -257,7 +257,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                         return workflow.emit("acquire new lock", dataBag);
                     }
                     dataBag.lock = data.Item;
-                    const leaseDurationMs = getMsForLease(parseInt(dataBag.lock.leaseDuration), self._config.leaseUnit)
+                    const leaseDurationMs = getMsForLease(parseFloat(dataBag.lock.leaseDuration), self._config.leaseUnit)
                     let timeout;
                     if (self._config.trustLocalTime)
                     {
