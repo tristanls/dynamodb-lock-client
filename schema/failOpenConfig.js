@@ -13,8 +13,8 @@ const schema = Joi.object().keys(
             }
         ).unknown().required(),
         lockTable: Joi.string().required(),
-        partitionKey: Joi.string().invalid("fencingToken", "leaseDuration", "lockAcquiredTimeUnixMs", "owner", "guid").required(),
-        sortKey: Joi.string().invalid("fencingToken", "leaseDuration", "lockAcquiredTimeUnixMs", "owner", "guid"),
+        partitionKey: Joi.string().invalid("leaseDuration", "lockAcquiredTimeUnixMs", "ownerName", "recordVersionNumber").required(),
+        sortKey: Joi.string().invalid("leaseDuration", "lockAcquiredTimeUnixMs", "ownerName", "recordVersionNumber"),
         heartbeatPeriodMs: Joi.number().integer().min(0),
         leaseDuration: Joi.number().integer().min(0).required(),
         leaseUnit: Joi.string().valid("milliseconds", "seconds", "minutes", "hours", "days").required(),
