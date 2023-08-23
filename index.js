@@ -65,8 +65,8 @@ FailClosed.prototype.acquireLock = function(id, callback)
                 Item:
                 {
                     [self._config.partitionKey]: dataBag.partitionID,
-                    owner: dataBag.owner,
-                    guid: dataBag.guid
+                    ownerName: dataBag.ownerName,
+                    recordVersionNumber: dataBag.recordVersionNumber
                 },
                 ConditionExpression: buildAttributeNotExistsExpression(self),
                 ExpressionAttributeNames: buildExpressionAttributeNames(self)
@@ -98,7 +98,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
                     return callback(undefined, new Lock(
                         {
                             dynamodb: self._config.dynamodb,
-                            guid: dataBag.guid,
+                            recordVersionNumber: dataBag.recordVersionNumber,
                             lockTable: self._config.lockTable,
                             partitionID: dataBag.partitionID,
                             partitionKey: self._config.partitionKey,
@@ -122,9 +122,9 @@ FailClosed.prototype.acquireLock = function(id, callback)
         {
             partitionID,
             sortID,
-            owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
+            ownerName: self._config.ownerName || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
             retryCount: self._retryCount,
-            guid: crypto.randomBytes(64)
+            recordVersionNumber: crypto.randomBytes(64)
         }
     )
 };
@@ -162,6 +162,23 @@ function buildExpressionAttributeNames(self)
         names["#sortKey"] = self._config.sortKey;
     }
     return names;
+}
+
+function getMsForLease(time, unit) {
+    switch (unit) {
+        case "milliseconds":
+            return time;
+        case "seconds":
+            return time * 1000;
+        case "minutes":
+            return time * 1000 * 60;
+        case "hours":
+            return time * 1000 * 60 * 60;
+        case "days":
+            return time * 1000 * 60 * 60 * 24;
+        default:
+            throw new Error(`Invalid lease unit: ${unit}`);
+    }
 }
 
 const FailOpen = function(config)
@@ -237,12 +254,10 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     }
                     if (!data.Item)
                     {
-                        dataBag.fencingToken = 1;
                         return workflow.emit("acquire new lock", dataBag);
                     }
                     dataBag.lock = data.Item;
-                    dataBag.fencingToken = dataBag.lock.fencingToken + 1;
-                    const leaseDurationMs = parseInt(dataBag.lock.leaseDurationMs);
+                    const leaseDurationMs = getMsForLease(parseInt(dataBag.lock.leaseDuration), self._config.leaseUnit)
                     let timeout;
                     if (self._config.trustLocalTime)
                     {
@@ -270,10 +285,9 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 Item:
                 {
                     [self._config.partitionKey]: dataBag.partitionID,
-                    fencingToken: dataBag.fencingToken,
-                    leaseDurationMs: self._config.leaseDurationMs,
-                    owner: dataBag.owner,
-                    guid: dataBag.guid
+                    leaseDuration: self._config.leaseDuration,
+                    ownerName: dataBag.ownerName,
+                    recordVersionNumber: dataBag.recordVersionNumber
                 },
                 ConditionExpression: buildAttributeNotExistsExpression(self),
                 ExpressionAttributeNames: buildExpressionAttributeNames(self)
@@ -320,17 +334,15 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 Item:
                 {
                     [self._config.partitionKey]: dataBag.partitionID,
-                    fencingToken: dataBag.fencingToken,
-                    leaseDurationMs: self._config.leaseDurationMs,
-                    owner: dataBag.owner,
-                    guid: dataBag.guid
+                    leaseDuration: self._config.leaseDuration,
+                    ownerName: dataBag.ownerName,
+                    recordVersionNumber: dataBag.recordVersionNumber
                 },
-                ConditionExpression: `${buildAttributeNotExistsExpression(self)} or (guid = :guid and fencingToken = :fencingToken)`,
+                ConditionExpression: `${buildAttributeNotExistsExpression(self)} or (recordVersionNumber = :recordVersionNumber)`,
                 ExpressionAttributeNames: buildExpressionAttributeNames(self),
                 ExpressionAttributeValues:
                 {
-                    ":fencingToken": dataBag.lock.fencingToken,
-                    ":guid": dataBag.lock.guid
+                    ":recordVersionNumber": dataBag.lock.recordVersionNumber
                 }
             };
             if (self._config.trustLocalTime)
@@ -372,12 +384,11 @@ FailOpen.prototype.acquireLock = function(id, callback)
             return callback(undefined, new Lock(
                 {
                     dynamodb: self._config.dynamodb,
-                    fencingToken: dataBag.fencingToken,
-                    guid: dataBag.guid,
+                    recordVersionNumber: dataBag.recordVersionNumber,
                     heartbeatPeriodMs: self._config.heartbeatPeriodMs,
-                    leaseDurationMs: self._config.leaseDurationMs,
+                    leaseDuration: self._config.leaseDuration,
                     lockTable: self._config.lockTable,
-                    owner: dataBag.owner,
+                    ownerName: dataBag.ownerName,
                     partitionID: dataBag.partitionID,
                     partitionKey: self._config.partitionKey,
                     sortID: dataBag.sortID,
@@ -393,9 +404,9 @@ FailOpen.prototype.acquireLock = function(id, callback)
         {
             partitionID,
             sortID,
-            owner: self._config.owner || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
+            ownerName: self._config.ownerName || `${pkg.name}@${pkg.version}_${os.userInfo().username}@${os.hostname()}`,
             retryCount: self._retryCount,
-            guid: crypto.randomBytes(64)
+            recordVersionNumber: crypto.randomBytes(64)
         }
     )
 };
@@ -409,11 +420,10 @@ const Lock = function(config)
     self._config = config;
 
     // variable properties
-    self._guid = self._config.guid;
+    self._recordVersionNumber = self._config.recordVersionNumber;
     self._released = false;
 
     // public properties
-    self.fencingToken = self._config.fencingToken;
 
     if (self._config.heartbeatPeriodMs)
     {
@@ -426,16 +436,15 @@ const Lock = function(config)
                 Item:
                 {
                     [self._config.partitionKey]: self._config.partitionID,
-                    fencingToken: self._config.fencingToken,
-                    leaseDurationMs: self._config.leaseDurationMs,
-                    owner: self._config.owner,
-                    guid: newGuid
+                    leaseDuration: self._config.leaseDuration,
+                    ownerName: self._config.ownerName,
+                    recordVersionNumber: newGuid
                 },
-                ConditionExpression: `${buildAttributeExistsExpression(self)} and guid = :guid`,
+                ConditionExpression: `${buildAttributeExistsExpression(self)} and recordVersionNumber = :recordVersionNumber`,
                 ExpressionAttributeNames: buildExpressionAttributeNames(self),
                 ExpressionAttributeValues:
                 {
-                    ":guid": self._guid
+                    ":recordVersionNumber": self._recordVersionNumber
                 }
             };
             if (self._config.trustLocalTime)
@@ -452,7 +461,7 @@ const Lock = function(config)
                     {
                         return self.emit("error", error);
                     }
-                    self._guid = newGuid;
+                    self._recordVersionNumber = newGuid;
                     if (!self._released) // See https://github.com/tristanls/dynamodb-lock-client/issues/1
                     {
                         self.heartbeatTimeout = setTimeout(refreshLock, self._config.heartbeatPeriodMs);
@@ -495,11 +504,11 @@ Lock.prototype._releaseFailClosed = function(callback)
         {
             [self._config.partitionKey]: self._config.partitionID
         },
-        ConditionExpression: `${buildAttributeExistsExpression(self)} and guid = :guid`,
+        ConditionExpression: `${buildAttributeExistsExpression(self)} and recordVersionNumber = :recordVersionNumber`,
         ExpressionAttributeNames: buildExpressionAttributeNames(self),
         ExpressionAttributeValues:
         {
-            ":guid": self._guid
+            ":recordVersionNumber": self._recordVersionNumber
         }
     };
     if (self._config.sortKey)
@@ -529,16 +538,15 @@ Lock.prototype._releaseFailOpen = function(callback)
         Item:
         {
             [self._config.partitionKey]: self._config.partitionID,
-            fencingToken: self._config.fencingToken,
-            leaseDurationMs: 1,
-            owner: self._config.owner,
-            guid: self._guid
+            leaseDuration: 1,
+            ownerName: self._config.ownerName,
+            recordVersionNumber: self._recordVersionNumber
         },
-        ConditionExpression: `${buildAttributeExistsExpression(self)} and guid = :guid`,
+        ConditionExpression: `${buildAttributeExistsExpression(self)} and recordVersionNumber = :recordVersionNumber`,
         ExpressionAttributeNames: buildExpressionAttributeNames(self),
         ExpressionAttributeValues:
         {
-            ":guid": self._guid
+            ":recordVersionNumber": self._recordVersionNumber
         }
     };
     if (self._config.trustLocalTime)

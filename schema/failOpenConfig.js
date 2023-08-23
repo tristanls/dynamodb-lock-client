@@ -4,7 +4,7 @@ const Joi = require("@hapi/joi");
 
 const schema = Joi.object().keys(
     {
-        owner: Joi.string(),
+        ownerName: Joi.string(),
         dynamodb: Joi.object().keys(
             {
                 delete: Joi.func().required(),
@@ -13,10 +13,11 @@ const schema = Joi.object().keys(
             }
         ).unknown().required(),
         lockTable: Joi.string().required(),
-        partitionKey: Joi.string().invalid("fencingToken", "leaseDurationMs", "lockAcquiredTimeUnixMs", "owner", "guid").required(),
-        sortKey: Joi.string().invalid("fencingToken", "leaseDurationMs", "lockAcquiredTimeUnixMs", "owner", "guid"),
+        partitionKey: Joi.string().invalid("fencingToken", "leaseDuration", "lockAcquiredTimeUnixMs", "owner", "guid").required(),
+        sortKey: Joi.string().invalid("fencingToken", "leaseDuration", "lockAcquiredTimeUnixMs", "owner", "guid"),
         heartbeatPeriodMs: Joi.number().integer().min(0),
-        leaseDurationMs: Joi.number().integer().min(0).required(),
+        leaseDuration: Joi.number().integer().min(0).required(),
+        leaseUnit: Joi.string().valid("milliseconds", "seconds", "minutes", "hours", "days").required(),
         trustLocalTime: Joi.boolean(),
         retryCount: Joi.number().integer().min(0)
     }
