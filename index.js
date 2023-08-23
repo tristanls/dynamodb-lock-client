@@ -104,6 +104,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
                             partitionKey: self._config.partitionKey,
                             sortID: dataBag.sortID,
                             sortKey: self._config.sortKey,
+                            deleteOnRelease: self._config.deleteOnRelease,
                             type: FailClosed
                         }
                     ));
@@ -394,6 +395,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     sortID: dataBag.sortID,
                     sortKey: self._config.sortKey,
                     trustLocalTime: self._config.trustLocalTime,
+                    deleteOnRelease: self._config.deleteOnRelease,
                     type: FailOpen
                 }
             ));
@@ -484,7 +486,7 @@ Lock.prototype.release = function(callback)
         clearTimeout(self.heartbeatTimeout);
         self.heartbeatTimeout = undefined;
     }
-    if (self._config.type == FailOpen)
+    if (self._config.type == FailOpen && !self._config.deleteOnRelease)
     {
         return self._releaseFailOpen(callback);
     }
