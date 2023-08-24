@@ -104,7 +104,6 @@ FailClosed.prototype.acquireLock = function(id, callback)
                             partitionKey: self._config.partitionKey,
                             sortID: dataBag.sortID,
                             sortKey: self._config.sortKey,
-                            deleteOnRelease: self._config.deleteOnRelease,
                             type: FailClosed
                         }
                     ));
@@ -395,7 +394,6 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     sortID: dataBag.sortID,
                     sortKey: self._config.sortKey,
                     trustLocalTime: self._config.trustLocalTime,
-                    deleteOnRelease: self._config.deleteOnRelease,
                     type: FailOpen
                 }
             ));
@@ -486,19 +484,6 @@ Lock.prototype.release = function(callback)
         clearTimeout(self.heartbeatTimeout);
         self.heartbeatTimeout = undefined;
     }
-    if (self._config.type == FailOpen && !self._config.deleteOnRelease)
-    {
-        return self._releaseFailOpen(callback);
-    }
-    else
-    {
-        return self._releaseFailClosed(callback);
-    }
-};
-
-Lock.prototype._releaseFailClosed = function(callback)
-{
-    const self = this;
     const params =
     {
         TableName: self._config.lockTable,
@@ -529,47 +514,6 @@ Lock.prototype._releaseFailClosed = function(callback)
             return callback(error);
         }
     );
-};
-
-Lock.prototype._releaseFailOpen = function(callback)
-{
-    const self = this;
-    const params =
-    {
-        TableName: self._config.lockTable,
-        Item:
-        {
-            [self._config.partitionKey]: self._config.partitionID,
-            leaseDuration: 1,
-            ownerName: self._config.ownerName,
-            recordVersionNumber: self._recordVersionNumber
-        },
-        ConditionExpression: `${buildAttributeExistsExpression(self)} and recordVersionNumber = :recordVersionNumber`,
-        ExpressionAttributeNames: buildExpressionAttributeNames(self),
-        ExpressionAttributeValues:
-        {
-            ":recordVersionNumber": self._recordVersionNumber
-        }
-    };
-    if (self._config.trustLocalTime)
-    {
-        params.Item.lockAcquiredTimeUnixMs = (new Date()).getTime();
-    }
-    if (self._config.sortKey)
-    {
-        params.Item[self._config.sortKey] = self._config.sortID;
-    }
-    self._config.dynamodb.put(params, (error, data) =>
-        {
-            if (error && error.code === "ConditionalCheckFailedException")
-            {
-                // another process may have claimed lock already
-                return callback();
-            }
-            return callback(error);
-        }
-    );
-
 };
 
 module.exports =

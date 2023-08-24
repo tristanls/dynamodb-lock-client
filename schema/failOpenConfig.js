@@ -20,7 +20,6 @@ const schema = Joi.object().keys(
         leaseUnit: Joi.string().valid("milliseconds", "seconds", "minutes", "hours", "days").required(),
         trustLocalTime: Joi.boolean(),
         retryCount: Joi.number().integer().min(0),
-        deleteOnRelease: Joi.boolean(),
     }
 ).required();
 
