@@ -4,7 +4,7 @@ _Stability: 1 - [Experimental](https://github.com/tristanls/stability-index#stab
 
 [![NPM version](https://badge.fury.io/js/dynamodb-lock-client.png)](http://npmjs.org/package/dynamodb-lock-client)
 
-A general purpose distributed locking library with fencing tokens built for AWS DynamoDB.
+A general purpose distributed locking library built for AWS DynamoDB.
 
 ## Contributors
 
@@ -66,7 +66,7 @@ failClosedClient.acquireLock("my-fail-closed-lock", (error, lock) =>
 );
 
 // "fail open": if process crashes and lock is not released, lock will
-//              eventually expire after leaseDurationMs from last heartbeat
+//              eventually expire after leaseDuration milliseconds from last heartbeat
 //              sent
 const failOpenClient = new DynamoDBLockClient.FailOpen(
     {
@@ -74,7 +74,8 @@ const failOpenClient = new DynamoDBLockClient.FailOpen(
         lockTable: "my-lock-table-name",
         partitionKey: "mylocks",
         heartbeatPeriodMs: 3e3,
-        leaseDurationMs: 1e4
+        leaseDuration: 1e4,
+        leaseUnit: "milliseconds"
     }
 );
 
@@ -84,7 +85,7 @@ failOpenClient.acquireLock("my-fail-open-lock", (error, lock) =>
         {
             return console.error(error)
         }
-        console.log(`acquired fail open lock with fencing token ${lock.fencingToken}`);
+        console.log(`acquired fail open lock`);
         lock.on("error", error => console.error("failed to heartbeat!"));
         // do stuff
         lock.release(error => error ? console.error(error) : console.log("released fail open lock"));
@@ -137,7 +138,7 @@ Outputs:
 
 The template above would make your `config.partitionKey == "id"` and your `config.lockTable == "distributed-locks-store"`.
 
-You can choose to call your `config.partitionKey` any valid string except `fencingToken`, `leaseDurationMs`, `lockAcquiredTimeUnixMs`, `owner`, or `guid` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table.
+You can choose to call your `config.partitionKey` any valid string except `leaseDuration`, `lockAcquiredTimeUnixMs`, `ownerName`, or `recordVersionNumber` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table.
 
 #### Using sort key
 
@@ -172,7 +173,7 @@ Outputs:
 
 The template above would make your `config.partitionKey == "id"`, `config.sortKey = "sortID"`, and your `config.lockTable == "distributed-locks-store"`.
 
-You can choose to call your `config.partitionKey` and `config.sortKey` any valid string except `fencingToken`, `leaseDurationMs`, `lockAcquiredTimeUnixMs`, `owner`, or `guid` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table. Your `config.sortKey` has to correspond to the sort key (`RANGE`) of the Primary Key of your DynamoDB table.
+You can choose to call your `config.partitionKey` and `config.sortKey` any valid string except `leaseDuration`, `lockAcquiredTimeUnixMs`, `ownerName`, or `recordVersionNumber` (these attribute names are reserved for use by `DynamoDBLockClient` library). Your `config.partitionKey` has to correspond to the partition key (`HASH`) of the Primary Key of your DynamoDB table. Your `config.sortKey` has to correspond to the sort key (`RANGE`) of the Primary Key of your DynamoDB table.
 
 ### DynamoDBLockClient
 
@@ -183,20 +184,6 @@ You can choose to call your `config.partitionKey` and `config.sortKey` any valid
   * [client.acquireLock(id, callback)](#clientacquirelockid-callback)
   * [lock.release(callback)](#lockreleasecallback)
 
-### new DynamoDBLockClient.FailClosed(config)
-
-  * `config`: _Object_
-    * `dynamodb`: _AWS.DynamoDB.DocumentClient_ Instance of AWS DynamoDB DocumentClient.
-    * `lockTable`: _String_ Name of lock table to use.
-    * `partitionKey`: _String_ Name of table partition key (hash key) to use.
-    * `sortKey`: _String_ _(Default: undefined)_ Optional name of table sort key (range key) to use. If specified, all lock ids will be required to contain a `sortKey`.
-    * `acquirePeriodMs`: _Number_ How long to wait for the lock before giving up. Whatever operation this lock is protecting should take less time than `acquirePeriodMs`.
-    * `owner`: _String_ Customize owner name for lock (optional).
-    * `retryCount`: _Number_ _(Default: 1)_ Number of times to retry lock acquisition after initial failure. No retries will occur if set to `0`.
-  * Return: _Object_ Fail closed client.
-
-Creates a "fail closed" client that acquires "fail closed" locks. If process crashes and lock is not released, lock will never be released. This means that some sort of intervention will be required to put the system back into operational state if lock is held and a process crashes while holding the lock.
-
 ### new DynamoDBLockClient.FailOpen(config)
 
   * `config`: _Object_
@@ -205,13 +192,14 @@ Creates a "fail closed" client that acquires "fail closed" locks. If process cra
     * `partitionKey`: _String_ Name of table partition key (hash key) to use.
     * `sortKey`: _String_ _(Default: undefined)_ Optional name of table sort key (range key) to use. If specified, all lock ids will be required to contain a `sortKey`.
     * `heartbeatPeriodMs`: _Number_ _(Default: undefined)_ Optional period at which to send heartbeats in order to keep the lock locked. Providing this option will cause heartbeats to be sent.
-    * `leaseDurationMs`: _Number_ The length of lock lease duration. If the lock is not renewed via a heartbeat within `leaseDurationMs` it will be automatically released.
-    * `owner`: _String_ Customize owner name for lock (optional).
+    * `leaseDuration`: _Number_ The length of lock lease duration. If the lock is not renewed via a heartbeat within `leaseDuration` it will be automatically released.
+    * `leaseUnit`: _String_ The unit of `leaseDuration`. Valid values are `milliseconds`, `seconds`, `minutes`, `hours`, `days`.
+    * `ownerName`: _String_ Customize owner name for lock (optional).
     * `retryCount`: _Number_ _(Default: 1)_ Number of times to retry lock acquisition after initial failure. No retries will occur if set to `0`.
-    * `trustLocalTime`: _Boolean_ _(Default: false)_ If set to `true`, when the client retrieves an existing lock, it will use local time to determine if `leaseDurationMs` has elapsed (and shorten its wait time accordingly) instead of always waiting the full `leaseDurationMs` milliseconds before making an acquisition attempt.
+    * `trustLocalTime`: _Boolean_ _(Default: false)_ If set to `true`, when the client retrieves an existing lock, it will use local time to determine if `leaseDuration` has elapsed (and shorten its wait time accordingly) instead of always waiting the full `leaseDuration` in milliseconds before making an acquisition attempt.
   * Return: _Object_ Fail open client.
 
-Creates a "fail open" client that acquires "fail open" locks. If process crashes and lock is not released, lock will eventually expire after `leaseDurationMs` from last heartbeat sent (if any). This means that if process acquires a lock, goes to sleep for more than `leaseDurationMs`, and then wakes up assuming it still has a lock, then it can perform an operation ignoring other processes that may assume they have a lock on the operation.
+Creates a "fail open" client that acquires "fail open" locks. If process crashes and lock is not released, lock will eventually expire after `leaseDuration` from last heartbeat sent (if any). This means that if process acquires a lock, goes to sleep for more than `leaseDuration`, and then wakes up assuming it still has a lock, then it can perform an operation ignoring other processes that may assume they have a lock on the operation.
 
 ### client.acquireLock(id, callback)
 
@@ -233,13 +221,12 @@ Creates a "fail open" client that acquires "fail open" locks. If process crashes
   * `callback`: _Function_ `(error, lock) => {}`
     * `error`: _Error_ Error, if any.
     * `lock`: _DynamoDBLockClient.Lock_ Successfully acquired lock object. Lock object is an instance of `EventEmitter`. If the `lock` is acquired via a fail open `client` configured to heartbeat, then the returned `lock` may emit an `error` event if a `heartbeat` operation fails.
-      * `fencingToken`: _Integer_ **fail open locks only** Integer monotonically incremented with every "fail open" lock acquisition to be used for [fencing](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html#making-the-lock-safe-with-fencing). Heartbeats do not increment `fencingToken`.
 
 Attempts to acquire a lock. If lock acquisition fails, callback will be called with an `error` and `lock` will be falsy. If lock acquisition succeeds, callback will be called with `lock`, and `error` will be falsy.
 
 Fail closed client will attempt to acquire a lock. On failure, client will retry after `acquirePeriodMs` up to `retryCount` times. After `retryCount` failures, client will fail lock acquisition. On successful acquisition, lock will be locked until `lock.release()` is called successfuly.
 
-Fail open client will attempt to acquire a lock. On failure, if `trustLocalTime` is `false` (the default), client will retry after `leaseDurationMs`. If `trustLocalTime` is `true`, the client will retry after `Math.max(0, leaseDurationMs - (localTimeMs - lockAcquiredTimeMs))` where `localTimeMs` is "now" and `lockAcquiredTimeMs` is the lock acquisition time recorded in the retrieved lock. Lock acquisition will be retried up to `retryCount` times. After `retryCount` failures, client will fail lock acquisition. On successful acquisition, if `heartbeatPeriodMs` option is not specified (heartbeats off), lock will expire after `leaseDurartionMs`. If `heartbeatPeriodMs` option is specified, lock will be renewed at `heartbeatPeriodMs` intervals until `lock.release()` is called successfuly. Additionally, if `heartbeatPeriodMs` option is specified, lock may emit an `error` event if it fails a heartbeat operation.
+Fail open client will attempt to acquire a lock. On failure, if `trustLocalTime` is `false` (the default), client will retry after `leaseDuration` converted to milliseconds. If `trustLocalTime` is `true`, the client will retry after `Math.max(0, leaseDurationMs - (localTimeMs - lockAcquiredTimeMs))` where `localTimeMs` is "now" and `lockAcquiredTimeMs` is the lock acquisition time recorded in the retrieved lock. Lock acquisition will be retried up to `retryCount` times. After `retryCount` failures, client will fail lock acquisition. On successful acquisition, if `heartbeatPeriodMs` option is not specified (heartbeats off), lock will expire after `leaseDurartionMs`. If `heartbeatPeriodMs` option is specified, lock will be renewed at `heartbeatPeriodMs` intervals until `lock.release()` is called successfuly. Additionally, if `heartbeatPeriodMs` option is specified, lock may emit an `error` event if it fails a heartbeat operation.
 
 ### lock.release(callback)
 
@@ -248,9 +235,7 @@ Fail open client will attempt to acquire a lock. On failure, if `trustLocalTime`
 
 Releases previously acquired lock.
 
-Fail closed lock is deleted, so that it can be acquired again.
-
-Fail open lock heartbeats stop, and its `leaseDurationMs` is set to 1 millisecond so that it expires "immediately". The datastructure is left in the datastore in order to provide continuity of `fencingToken` monotonicity guarantee.
+Locks are deleted when they are released. If a lock is not released, it should expire after `leaseDuration`, assuming another process attempts to acquire the lock.
 
 ## Releases
 
