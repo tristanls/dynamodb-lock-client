@@ -258,7 +258,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                         return workflow.emit("acquire new lock", dataBag);
                     }
                     dataBag.lock = data.Item;
-                    const leaseDurationMs = parseInt(dataBag.lock.leaseDuration); // Lease durations are stored in milliseconds in DynamoDB
+                    const leaseDurationMs = parseInt(dataBag.lock.leaseDuration) || 10000; // Lease durations are stored in milliseconds in DynamoDB
                     let timeout;
                     if (self._config.trustLocalTime)
                     {
@@ -286,7 +286,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 Item:
                 {
                     [self._config.partitionKey]: dataBag.partitionID,
-                    leaseDuration: getMsForLease(self._config.leaseDuration, self._config.leaseUnit),
+                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit),
                     ownerName: dataBag.ownerName,
                     recordVersionNumber: dataBag.recordVersionNumber
                 },
@@ -335,7 +335,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 Item:
                 {
                     [self._config.partitionKey]: dataBag.partitionID,
-                    leaseDuration: getMsForLease(self._config.leaseDuration, self._config.leaseUnit),
+                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit),
                     ownerName: dataBag.ownerName,
                     recordVersionNumber: dataBag.recordVersionNumber
                 },
@@ -387,7 +387,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                     dynamodb: self._config.dynamodb,
                     recordVersionNumber: dataBag.recordVersionNumber,
                     heartbeatPeriodMs: self._config.heartbeatPeriodMs,
-                    leaseDuration: self._config.leaseDuration,
+                    leaseDuration: self._config.leaseDuration || 10000,
                     leaseUnit: self._config.leaseUnit,
                     lockTable: self._config.lockTable,
                     ownerName: dataBag.ownerName,
@@ -438,7 +438,7 @@ const Lock = function(config)
                 Item:
                 {
                     [self._config.partitionKey]: self._config.partitionID,
-                    leaseDuration: getMsForLease(self._config.leaseDuration, self._config.leaseUnit),
+                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit),
                     ownerName: self._config.ownerName,
                     recordVersionNumber: newGuid
                 },
