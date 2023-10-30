@@ -286,7 +286,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 Item:
                 {
                     [self._config.partitionKey]: dataBag.partitionID,
-                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit),
+                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit).toString(),
                     ownerName: dataBag.ownerName,
                     recordVersionNumber: dataBag.recordVersionNumber
                 },
@@ -335,7 +335,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 Item:
                 {
                     [self._config.partitionKey]: dataBag.partitionID,
-                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit),
+                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit).toString(),
                     ownerName: dataBag.ownerName,
                     recordVersionNumber: dataBag.recordVersionNumber
                 },
@@ -438,7 +438,7 @@ const Lock = function(config)
                 Item:
                 {
                     [self._config.partitionKey]: self._config.partitionID,
-                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit),
+                    leaseDuration: getMsForLease(self._config.leaseDuration || 10000, self._config.leaseUnit).toString(),
                     ownerName: self._config.ownerName,
                     recordVersionNumber: newGuid
                 },
