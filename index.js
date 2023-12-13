@@ -79,7 +79,7 @@ FailClosed.prototype.acquireLock = function(id, callback)
                 {
                     if (error)
                     {
-                        if (error.code === "ConditionalCheckFailedException")
+                        if (error.name === "ConditionalCheckFailedException")
                         {
                             if (dataBag.retryCount > 0)
                             {
@@ -290,7 +290,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 {
                     if (error)
                     {
-                        if (error.code === "ConditionalCheckFailedException")
+                        if (error.name === "ConditionalCheckFailedException")
                         {
                             if (dataBag.retryCount > 0)
                             {
@@ -345,7 +345,7 @@ FailOpen.prototype.acquireLock = function(id, callback)
                 {
                     if (error)
                     {
-                        if (error.code === "ConditionalCheckFailedException")
+                        if (error.name === "ConditionalCheckFailedException")
                         {
                             if (dataBag.retryCount > 0)
                             {
@@ -532,7 +532,7 @@ Lock.prototype._releaseFailClosed = function(callback)
     }
     self._config.dynamodb.deleteItem(params, (error, data) =>
         {
-            if (error && error.code === "ConditionalCheckFailedException")
+            if (error && error.name === "ConditionalCheckFailedException")
             {
                 const err = new Error("Failed to release lock.");
                 err.code = "FailedToReleaseLock";
@@ -575,7 +575,7 @@ Lock.prototype._releaseFailOpen = function(callback)
     }
     self._config.dynamodb.putItem(params, (error, data) =>
         {
-            if (error && error.code === "ConditionalCheckFailedException")
+            if (error && error.name === "ConditionalCheckFailedException")
             {
                 // another process may have claimed lock already
                 return callback();

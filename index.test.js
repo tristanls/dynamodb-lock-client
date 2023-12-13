@@ -201,7 +201,7 @@ describe("FailOpen lock acquisition", () =>
                     describe("if ConditionalCheckFailedException error", () =>
                     {
                         const error = new Error("boom");
-                        error.code = "ConditionalCheckFailedException";
+                        error.name = "ConditionalCheckFailedException";
                         beforeEach(() =>
                             {
                                 dynamodb = Object.assign(
@@ -464,7 +464,7 @@ describe("FailOpen lock acquisition", () =>
                     describe("if ConditionalCheckFailedException error", () =>
                     {
                         const error = new Error("boom");
-                        error.code = "ConditionalCheckFailedException";
+                        error.name = "ConditionalCheckFailedException";
                         beforeEach(() =>
                             {
                                 dynamodb = Object.assign(
@@ -782,7 +782,7 @@ describe("FailOpen lock acquisition", () =>
                     describe("if ConditionalCheckFailedException error", () =>
                     {
                         const error = new Error("boom");
-                        error.code = "ConditionalCheckFailedException";
+                        error.name = "ConditionalCheckFailedException";
                         beforeEach(() =>
                             {
                                 dynamodb = Object.assign(
@@ -1066,7 +1066,7 @@ describe("FailOpen lock acquisition", () =>
                     describe("if ConditionalCheckFailedException error", () =>
                     {
                         const error = new Error("boom");
-                        error.code = "ConditionalCheckFailedException";
+                        error.name = "ConditionalCheckFailedException";
                         beforeEach(() =>
                             {
                                 dynamodb = Object.assign(
