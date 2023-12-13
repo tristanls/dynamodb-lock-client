@@ -1,13 +1,16 @@
 "use strict";
 
-const AWS = require("aws-sdk");
+const AWS = require("@aws-sdk/client-dynamodb");
 const DynamoDBLockClient = require("../index.js");
 
-const dynamodb = new AWS.DynamoDB.DocumentClient(
-    {
-        region: "us-east-1"
-    }
-);
+const dynamodb = new AWS.DynamoDB({
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    },
+    region: process.env.AWS_REGION,
+    endpoint: process.env.DDB_ENDPOINT
+  })
 
 // "fail closed": if process crashes and lock is not released, lock will
 //                never be released (requires human intervention)

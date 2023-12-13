@@ -7,9 +7,9 @@ const schema = Joi.object().keys(
         owner: Joi.string(),
         dynamodb: Joi.object().keys(
             {
-                delete: Joi.func().required(),
-                get: Joi.func().required(),
-                put: Joi.func().required()
+                deleteItem: Joi.func().required(),
+                getItem: Joi.func().required(),
+                putItem: Joi.func().required()
             }
         ).unknown().required(),
         lockTable: Joi.string().required(),
