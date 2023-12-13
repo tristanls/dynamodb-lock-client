@@ -6,6 +6,8 @@ _Stability: 1 - [Experimental](https://github.com/tristanls/stability-index#stab
 
 A general purpose distributed locking library with fencing tokens built for AWS DynamoDB.
 
+For AWS SDK v3 version go to: https://github.com/trilogy-group/dynamodb-lock-client-v3
+
 ## Contributors
 
 [@tristanls](https://github.com/tristanls), [@Jacob-Lynch](https://github.com/Jacob-Lynch), [@simlu](https://github.com/simlu), Lukas Siemon, [@tomyam1](https://github.com/tomyam1), [@deathgrindfreak](https://github.com/deathgrindfreak), [@jepetko](https://github.com/jepetko), [@fpronto](https://github.com/fpronto)
