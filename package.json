@@ -10,6 +10,7 @@
   },
   "main": "index.js",
   "devDependencies": {
+    "clone": "^2.1.2",
     "jest": "26.0.1"
   },
   "dependencies": {
